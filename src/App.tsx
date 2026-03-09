@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import {
@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Stethoscope,
   LayoutDashboard,
-  ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Search,
@@ -22,8 +21,7 @@ import {
   Unlock,
   KeyRound,
   Trash2,
-  FileSpreadsheet,
-  ShieldAlert
+  FileSpreadsheet
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -136,7 +134,6 @@ export default function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -157,7 +154,7 @@ export default function App() {
   };
 
   // Submitter State
-  const [userOffice, setUserOffice] = useState('HQ');
+  const [userOffice] = useState('HQ');
   const [userId, setUserId] = useState('');
   const [userName, setUserName] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -200,7 +197,6 @@ export default function App() {
       })
       .catch(err => {
         console.error('Failed to load leaves:', err);
-        setError('Failed to load connection data.');
       })
       .finally(() => setIsLoading(false));
   }, []);
