@@ -23,7 +23,8 @@ import {
   Trash2,
   FileSpreadsheet,
   ShieldCheck,
-  Phone,
+  Fingerprint,
+  UserCheck,
   X
 } from 'lucide-react';
 
@@ -97,9 +98,7 @@ const formatUserId = (id: string) => {
   return cleaned;
 };
 
-const isValidUserId = (id: string) => {
-  return /^[A-Z]{2}-\d{3}$/.test(id);
-};
+
 
 const exportToExcel = (data: Leave[], fileName: string) => {
   const worksheet = XLSX.utils.json_to_sheet(data.map((item, index) => ({
@@ -154,30 +153,61 @@ export default function App() {
 
   // Admin Access Management
   const [showAccessManager, setShowAccessManager] = useState(false);
-  const [allowedMobiles, setAllowedMobiles] = useState<string[]>(() => {
-    const saved = localStorage.getItem('mdo_allowed_mobiles');
-    return saved ? JSON.parse(saved) : ['0123456789']; // Default initial number
+  const [allowedIds, setAllowedIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem('mdo_allowed_ids');
+    return saved ? JSON.parse(saved) : ['EMP-001']; // Default initial ID
   });
-  const [newMobileInput, setNewMobileInput] = useState('');
+  const [appUserPin, setAppUserPin] = useState(() => {
+    return localStorage.getItem('mdo_app_user_pin') || import.meta.env.VITE_USER_PIN || '1234';
+  });
+  const [newIdInput, setNewIdInput] = useState('');
   const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
 
   // Access State
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('mdo_authenticated') === 'true';
   });
+  const [storedEmployeeId, setStoredEmployeeId] = useState(() => {
+    return localStorage.getItem('mdo_employee_id') || '';
+  });
   const [showLockScreen, setShowLockScreen] = useState(!isAuthenticated);
-  const [mobileEntry, setMobileEntry] = useState('');
-  const [authError, setAuthError] = useState(false);
+  
+  const [employeeIdInput, setEmployeeIdInput] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [authError, setAuthError] = useState('');
 
   const handleAuthentication = (e: React.FormEvent) => {
     e.preventDefault();
-    if (allowedMobiles.includes(mobileEntry.trim())) {
-      setIsAuthenticated(true);
-      setShowLockScreen(false);
-      localStorage.setItem('mdo_authenticated', 'true');
-      setAuthError(false);
+    setAuthError('');
+
+    const isFirstLogin = !storedEmployeeId;
+    const pinMatch = pinInput === appUserPin;
+
+    if (isFirstLogin) {
+      const idMatch = allowedIds.includes(employeeIdInput.trim().toUpperCase());
+      if (idMatch && pinMatch) {
+        setIsAuthenticated(true);
+        setShowLockScreen(false);
+        const id = employeeIdInput.trim().toUpperCase();
+        setStoredEmployeeId(id);
+        localStorage.setItem('mdo_employee_id', id);
+        localStorage.setItem('mdo_authenticated', 'true');
+        setPinInput('');
+        setEmployeeIdInput('');
+      } else if (!idMatch) {
+        setAuthError('Employee ID not recognized');
+      } else {
+        setAuthError('Incorrect PIN');
+      }
     } else {
-      setAuthError(true);
+      if (pinMatch) {
+        setIsAuthenticated(true);
+        setShowLockScreen(false);
+        localStorage.setItem('mdo_authenticated', 'true');
+        setPinInput('');
+      } else {
+        setAuthError('Incorrect PIN');
+      }
     }
   };
 
@@ -243,8 +273,8 @@ export default function App() {
   }, []);
 
   const addLeave = async (type: keyof typeof LEAVE_TYPES, date: string) => {
-    const formattedId = formatUserId(userId);
-    if (!isValidUserId(formattedId) || !userName.trim() || isSubmitting) return;
+    const formattedId = storedEmployeeId || formatUserId(userId);
+    if (!formattedId || !userName.trim() || isSubmitting) return;
 
     const newLeave = {
       id: Date.now(),
@@ -285,38 +315,38 @@ export default function App() {
       setView('dashboard');
     }, 1500);
   };
-  const addMobileNumber = async (e: React.FormEvent) => {
+  const addEmployeeId = async (e: React.FormEvent) => {
     e.preventDefault();
-    const num = newMobileInput.trim();
-    if (!num || allowedMobiles.includes(num) || isUpdatingAccess) return;
+    const id = newIdInput.trim().toUpperCase();
+    if (!id || allowedIds.includes(id) || isUpdatingAccess) return;
 
     setIsUpdatingAccess(true);
-    const updatedList = [...allowedMobiles, num];
-
+    const updatedList = [...allowedIds, id];
+    
     try {
       if (GOOGLE_SCRIPT_URL) {
         await fetch(GOOGLE_SCRIPT_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'add_mobile', mobile: num }),
+          body: JSON.stringify({ action: 'add_allowed_id', id: id }),
         });
       }
-
-      setAllowedMobiles(updatedList);
-      localStorage.setItem('mdo_allowed_mobiles', JSON.stringify(updatedList));
-      setNewMobileInput('');
+      
+      setAllowedIds(updatedList);
+      localStorage.setItem('mdo_allowed_ids', JSON.stringify(updatedList));
+      setNewIdInput('');
     } catch (err) {
-      console.error('Failed to add mobile:', err);
+      console.error('Failed to add ID:', err);
     } finally {
       setIsUpdatingAccess(false);
     }
   };
 
-  const removeMobileNumber = async (num: string) => {
+  const removeEmployeeId = async (id: string) => {
     if (isUpdatingAccess) return;
     setIsUpdatingAccess(true);
-    const updatedList = allowedMobiles.filter(m => m !== num);
+    const updatedList = allowedIds.filter(i => i !== id);
 
     try {
       if (GOOGLE_SCRIPT_URL) {
@@ -324,16 +354,33 @@ export default function App() {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'remove_mobile', mobile: num }),
+          body: JSON.stringify({ action: 'remove_allowed_id', id }),
         });
       }
-
-      setAllowedMobiles(updatedList);
-      localStorage.setItem('mdo_allowed_mobiles', JSON.stringify(updatedList));
+      
+      setAllowedIds(updatedList);
+      localStorage.setItem('mdo_allowed_ids', JSON.stringify(updatedList));
     } catch (err) {
-      console.error('Failed to remove mobile:', err);
+      console.error('Failed to remove ID:', err);
     } finally {
       setIsUpdatingAccess(false);
+    }
+  };
+
+  const updateAppUserPin = async (newPin: string) => {
+    setAppUserPin(newPin);
+    localStorage.setItem('mdo_app_user_pin', newPin);
+    if (GOOGLE_SCRIPT_URL) {
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update_user_pin', pin: newPin }),
+        });
+      } catch (err) {
+        console.error('Failed to sync PIN:', err);
+      }
     }
   };
 
@@ -473,6 +520,7 @@ export default function App() {
             onAdd={addLeave}
             showSuccess={showSuccess}
             isSubmitting={isSubmitting}
+            storedEmployeeId={storedEmployeeId}
           />
         )}
       </main>
@@ -529,55 +577,75 @@ export default function App() {
                 <ShieldCheck className="text-indigo-600 dark:text-indigo-400 w-8 h-8" />
               </div>
               <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Access Control</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Authorized Mobile Numbers</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Management Panel</p>
             </div>
 
-            <div className="flex-grow overflow-y-auto pr-2 space-y-4 custom-scrollbar">
-              <form onSubmit={addMobileNumber} className="space-y-3">
+            <div className="flex-grow overflow-y-auto pr-2 space-y-6 custom-scrollbar">
+              {/* User PIN Management */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1">Global User Access PIN</label>
                 <div className="relative group">
                   <input
-                    type="tel"
-                    value={newMobileInput}
-                    onChange={(e) => setNewMobileInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Add new mobile number..."
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-bold"
+                    type="text"
+                    value={appUserPin}
+                    onChange={(e) => updateAppUserPin(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Set User PIN"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-black tracking-widest text-xl"
                   />
-                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600" size={20} />
-                  <button
-                    type="submit"
-                    disabled={isUpdatingAccess || !newMobileInput}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                  >
-                    <PlusCircle size={20} />
-                  </button>
+                  <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
                 </div>
-              </form>
+                <p className="text-[10px] text-slate-400 italic px-1 leading-tight">This PIN is required for all employees to enter the dashboard.</p>
+              </div>
 
-              <div className="space-y-2">
-                {allowedMobiles.map((mobile) => (
-                  <div key={mobile} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-slate-200 dark:hover:border-slate-700">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-                        <Phone size={18} className="text-indigo-600 dark:text-indigo-400" />
-                      </div>
-                      <span className="font-black text-slate-700 dark:text-slate-300 tracking-wider">{mobile}</span>
-                    </div>
+              {/* Employee ID Whitelist */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1">Authorized Employee IDs</label>
+                <form onSubmit={addEmployeeId} className="space-y-3">
+                  <div className="relative group">
+                    <input
+                      type="text"
+                      value={newIdInput}
+                      onChange={(e) => setNewIdInput(e.target.value)}
+                      placeholder="Add Employee ID (e.g. ST-001)..."
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-bold"
+                    />
+                    <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600" size={20} />
                     <button
-                      onClick={() => removeMobileNumber(mobile)}
-                      disabled={isUpdatingAccess}
-                      className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all"
-                      title="Revoke Access"
+                      type="submit"
+                      disabled={isUpdatingAccess || !newIdInput}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                     >
-                      <X size={18} />
+                      <PlusCircle size={20} />
                     </button>
                   </div>
-                ))}
-                {allowedMobiles.length === 0 && (
-                  <div className="text-center py-8 opacity-20">
-                    <Phone size={48} className="mx-auto mb-2" />
-                    <p className="text-sm font-bold uppercase tracking-tighter">No Access Granted</p>
-                  </div>
-                )}
+                </form>
+
+                <div className="space-y-2">
+                  {allowedIds.map((id) => (
+                    <div key={id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-slate-200 dark:hover:border-slate-700">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
+                          <UserCheck size={18} className="text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <span className="font-black text-slate-700 dark:text-slate-300 tracking-wider uppercase">{id}</span>
+                      </div>
+                      <button
+                        onClick={() => removeEmployeeId(id)}
+                        disabled={isUpdatingAccess}
+                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all"
+                        title="Revoke ID Access"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  ))}
+                  {allowedIds.length === 0 && (
+                    <div className="text-center py-8 opacity-20">
+                      <Fingerprint size={48} className="mx-auto mb-2" />
+                      <p className="text-sm font-bold uppercase tracking-tighter">No Employee IDs Whitelisted</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -587,7 +655,7 @@ export default function App() {
                 onClick={() => setShowAccessManager(false)}
                 className="w-full px-4 py-4 rounded-2xl font-black text-white bg-slate-900 dark:bg-slate-800 hover:bg-black dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-xs shadow-xl shadow-slate-200 dark:shadow-black/40"
               >
-                Done
+                Save & Close
               </button>
             </div>
           </div>
@@ -606,21 +674,39 @@ export default function App() {
                 <LayoutDashboard className="text-white w-10 h-10" />
               </div>
               <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Mark Your Day-Off</h1>
-              <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight leading-snug">Private Access. Please enter your registered mobile number to proceed.</p>
+              <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight leading-snug">
+                {storedEmployeeId ? `Welcome back, ${storedEmployeeId}` : 'Authorized Access Only'}
+              </p>
             </div>
 
             <div className="space-y-4">
+              {!storedEmployeeId && (
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={employeeIdInput}
+                    onChange={(e) => setEmployeeIdInput(e.target.value)}
+                    placeholder="Employee ID"
+                    autoFocus
+                    className="w-full text-center tracking-[0.1em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
+                  />
+                  <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700" size={24} />
+                  <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
+                </div>
+              )}
+              
               <div className="relative group">
                 <input
-                  type="tel"
-                  value={mobileEntry}
-                  onChange={(e) => setMobileEntry(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Mobile Number"
-                  autoFocus
-                  className="w-full text-center tracking-[0.1em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
+                  type="password"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="Access PIN"
+                  className="w-full text-center tracking-[0.5em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
                 />
+                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700" size={24} />
                 <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
               </div>
+
               {authError && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
@@ -628,7 +714,7 @@ export default function App() {
                   className="text-red-500 text-sm text-center font-bold flex items-center justify-center gap-2"
                 >
                   <AlertCircle size={16} />
-                  Mobile Number not recognized
+                  {authError}
                 </motion.div>
               )}
             </div>
@@ -639,7 +725,7 @@ export default function App() {
               whileTap={{ scale: 0.98 }}
               className="w-full py-5 rounded-2xl font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 text-lg uppercase tracking-wider"
             >
-              Enter Dashboard
+              Unlock Access
             </motion.button>
 
             <div className="text-center">
@@ -701,9 +787,17 @@ interface SubmitterProps {
   onAdd: (type: keyof typeof LEAVE_TYPES, date: string) => void;
   showSuccess: boolean;
   isSubmitting: boolean;
+  storedEmployeeId?: string;
 }
 
-function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, showSuccess, isSubmitting }: SubmitterProps) {
+function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, showSuccess, isSubmitting, storedEmployeeId }: SubmitterProps) {
+  // Sync stored ID to parent state if available
+  useEffect(() => {
+    if (storedEmployeeId) {
+      setUserId(storedEmployeeId);
+    }
+  }, [storedEmployeeId, setUserId]);
+
   return (
     <div className="max-w-md mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center">
@@ -713,16 +807,19 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, s
 
       <div className="bg-[#faf9f6] dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6 transition-colors duration-300">
         <div>
-          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Your ID</label>
-          <input
-            type="text"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="e.g. AB-123"
-            maxLength={6}
-            className="w-full p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all uppercase dark:text-white dark:placeholder-slate-500"
-          />
-          <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500 font-medium">Format: 2 Letters - 3 Numbers (e.g. AB-123)</p>
+          <label className="block text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Employee ID</label>
+          <div className="relative">
+            <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600" size={20} />
+            <input
+              type="text"
+              required
+              disabled={!!storedEmployeeId}
+              placeholder="Enter Employee ID"
+              value={storedEmployeeId || userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-black uppercase disabled:opacity-70 disabled:bg-slate-100 dark:disabled:bg-slate-800"
+            />
+          </div>
         </div>
 
         <div>
@@ -747,7 +844,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, s
               </div>
               <div className="flex gap-2">
                 <button
-                  disabled={!isValidUserId(formatUserId(userId)) || !userName || isSubmitting}
+                  disabled={isSubmitting}
                   onClick={() => onAdd('MEDICAL', TODAY_ID)}
                   className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold shadow-md shadow-red-200 hover:bg-red-600 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
                 >
@@ -755,7 +852,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, s
                   <span className="text-xs font-medium opacity-90">{TODAY_SHORT_LABEL}</span>
                 </button>
                 <button
-                  disabled={!isValidUserId(formatUserId(userId)) || !userName || isSubmitting}
+                  disabled={isSubmitting}
                   onClick={() => onAdd('MEDICAL', NEXT_DAY_ID)}
                   className="flex-1 bg-red-100 text-red-700 border-2 border-red-200 py-3 rounded-xl font-bold hover:bg-red-200 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
                 >
@@ -772,7 +869,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, s
               </div>
               <div className="flex gap-2">
                 <button
-                  disabled={!isValidUserId(formatUserId(userId)) || !userName || isSubmitting}
+                  disabled={isSubmitting}
                   onClick={() => onAdd('URGENT', TODAY_ID)}
                   className="flex-1 bg-amber-500 text-white py-3 rounded-xl font-bold shadow-md shadow-amber-200 hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
                 >
@@ -780,7 +877,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, s
                   <span className="text-xs font-medium opacity-90">{TODAY_SHORT_LABEL}</span>
                 </button>
                 <button
-                  disabled={!isValidUserId(formatUserId(userId)) || !userName || isSubmitting}
+                  disabled={isSubmitting}
                   onClick={() => onAdd('URGENT', NEXT_DAY_ID)}
                   className="flex-1 bg-amber-100 text-amber-700 border-2 border-amber-200 py-3 rounded-xl font-bold hover:bg-amber-200 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
                 >
