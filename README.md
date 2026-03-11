@@ -8,10 +8,11 @@ MDO is a modern, responsive web application for teams to submit and track short-
 
 ### For All Users
 - **Invite-Only Access** — Secure entry requires a team-wide invite code.
-- **Quick Leave Submission** — Mark yourself as away for *Today* or the *Next Work Day* (Medical or Urgent Leave).
+- **Fullscreen Experience** — Native app-like feel on mobile and desktop devices.
+- **Quick Leave Submission** — Mark yourself as away for *Today* or the *Next Work Day*.
 - **Live Dashboard** — See who is away today and the next working day across all offices.
-- **Dark Mode** — Toggle between a comfortable warm light theme and a sleek dark theme.
-- **Timezone-Aware** — Dates are computed using local time (not UTC), ensuring accuracy for GMT+8 and other non-UTC timezones.
+- **Dark Mode** — Toggle between comfortable light and sleek dark themes.
+- **Timezone-Aware** — Accurate date tracking using local office time zones.
 
 ### For Admins Only *(PIN-protected)*
 - **Manage Access** — Admins can update the application's invite code directly from the UI using the **Shield Access Manager**.
@@ -191,6 +192,24 @@ Click the **🔒 Lock icon** in the top navigation bar to open the Admin PIN pro
 - Click the **🔓 Unlock icon** to log out of admin mode.
 
 The Admin PIN is stored in your `.env` file as `VITE_ADMIN_PIN`.
+
+---
+
+## Mobile Fullscreen Mode
+
+MDO is optimized to run as a **Progressive Web App (PWA)**. For the best "app-like" experience without address bars or browser buttons:
+
+### On iOS (iPhone/iPad):
+1. Open the app in **Safari**.
+2. Tap the **Share** button (square with arrow).
+3. Scroll down and tap **"Add to Home Screen"**.
+
+### On Android:
+1. Open the app in **Chrome**.
+2. Tap the **Three Dots** menu.
+3. Tap **"Install App"** or **"Add to Home Screen"**.
+
+Once added, MDO will launch in its own standalone window with a clean, fullscreen interface.
 
 ---
 
