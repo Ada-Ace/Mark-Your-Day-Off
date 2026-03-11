@@ -385,11 +385,12 @@ export default function App() {
                 ]
               }}
               transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-6 py-2.5 rounded-full text-sm font-black bg-indigo-600 text-white transition-colors shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-600 text-white transition-colors shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40"
+              title="Mark Your Day-off"
             >
-              Mark Your Day-off
+              <PlusCircle size={24} />
             </motion.button>
           </div>
 
