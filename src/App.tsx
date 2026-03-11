@@ -28,6 +28,11 @@ import {
   X
 } from 'lucide-react';
 
+interface UserAccess {
+  id: string;
+  pin: string;
+}
+
 // --- CONFIGURATION ---
 const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL || '';
 
@@ -153,12 +158,18 @@ export default function App() {
 
   // Admin Access Management
   const [showAccessManager, setShowAccessManager] = useState(false);
-  const [allowedIds, setAllowedIds] = useState<string[]>(() => {
-    const saved = localStorage.getItem('mdo_allowed_ids');
-    return saved ? JSON.parse(saved) : ['EMP-001']; // Default initial ID
-  });
-  const [appUserPin, setAppUserPin] = useState(() => {
-    return localStorage.getItem('mdo_app_user_pin') || import.meta.env.VITE_USER_PIN || '1234';
+  const [allowedUsers, setAllowedUsers] = useState<UserAccess[]>(() => {
+    const saved = localStorage.getItem('mdo_allowed_users');
+    if (saved) return JSON.parse(saved);
+    
+    // Migration from legacy mdo_allowed_ids
+    const legacy = localStorage.getItem('mdo_allowed_ids');
+    if (legacy) {
+      const ids = JSON.parse(legacy);
+      return ids.map((id: string) => ({ id: id.toUpperCase(), pin: '1234' }));
+    }
+    
+    return [{ id: 'ST-001', pin: '1234' }];
   });
   const [newIdInput, setNewIdInput] = useState('');
   const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
@@ -180,34 +191,24 @@ export default function App() {
     e.preventDefault();
     setAuthError('');
 
-    const isFirstLogin = !storedEmployeeId;
-    const pinMatch = pinInput === appUserPin;
+    const inputId = (storedEmployeeId || employeeIdInput).trim().toUpperCase();
+    const user = allowedUsers.find(u => u.id === inputId);
 
-    if (isFirstLogin) {
-      const idMatch = allowedIds.includes(employeeIdInput.trim().toUpperCase());
-      if (idMatch && pinMatch) {
-        setIsAuthenticated(true);
-        setShowLockScreen(false);
-        const id = employeeIdInput.trim().toUpperCase();
-        setStoredEmployeeId(id);
-        localStorage.setItem('mdo_employee_id', id);
-        localStorage.setItem('mdo_authenticated', 'true');
-        setPinInput('');
-        setEmployeeIdInput('');
-      } else if (!idMatch) {
-        setAuthError('Employee ID not recognized');
-      } else {
-        setAuthError('Incorrect PIN');
-      }
+    if (!user) {
+      setAuthError('Employee ID not recognized');
+      return;
+    }
+
+    if (pinInput === user.pin) {
+      setIsAuthenticated(true);
+      setShowLockScreen(false);
+      setStoredEmployeeId(user.id);
+      localStorage.setItem('mdo_employee_id', user.id);
+      localStorage.setItem('mdo_authenticated', 'true');
+      setPinInput('');
+      setEmployeeIdInput('');
     } else {
-      if (pinMatch) {
-        setIsAuthenticated(true);
-        setShowLockScreen(false);
-        localStorage.setItem('mdo_authenticated', 'true');
-        setPinInput('');
-      } else {
-        setAuthError('Incorrect PIN');
-      }
+      setAuthError('Incorrect PIN');
     }
   };
 
@@ -315,13 +316,26 @@ export default function App() {
       setView('dashboard');
     }, 1500);
   };
+  const generatePin = () => {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+  };
+
   const addEmployeeId = async (e: React.FormEvent) => {
     e.preventDefault();
-    const id = newIdInput.trim().toUpperCase();
-    if (!id || allowedIds.includes(id) || isUpdatingAccess) return;
+    // Enforce AA-111 format
+    const raw = newIdInput.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (raw.length !== 5) {
+      alert("Invalid Format! Use 2 letters and 3 numbers (e.g., AB123)");
+      return;
+    }
+    const id = `${raw.slice(0, 2)}-${raw.slice(2, 5)}`;
+    
+    if (allowedUsers.some(u => u.id === id) || isUpdatingAccess) return;
 
     setIsUpdatingAccess(true);
-    const updatedList = [...allowedIds, id];
+    const pin = generatePin();
+    const newUser = { id, pin };
+    const updatedList = [...allowedUsers, newUser];
     
     try {
       if (GOOGLE_SCRIPT_URL) {
@@ -329,12 +343,12 @@ export default function App() {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'add_allowed_id', id: id }),
+          body: JSON.stringify({ action: 'add_allowed_id', id, pin }),
         });
       }
       
-      setAllowedIds(updatedList);
-      localStorage.setItem('mdo_allowed_ids', JSON.stringify(updatedList));
+      setAllowedUsers(updatedList);
+      localStorage.setItem('mdo_allowed_users', JSON.stringify(updatedList));
       setNewIdInput('');
     } catch (err) {
       console.error('Failed to add ID:', err);
@@ -346,7 +360,7 @@ export default function App() {
   const removeEmployeeId = async (id: string) => {
     if (isUpdatingAccess) return;
     setIsUpdatingAccess(true);
-    const updatedList = allowedIds.filter(i => i !== id);
+    const updatedList = allowedUsers.filter(u => u.id !== id);
 
     try {
       if (GOOGLE_SCRIPT_URL) {
@@ -358,8 +372,8 @@ export default function App() {
         });
       }
       
-      setAllowedIds(updatedList);
-      localStorage.setItem('mdo_allowed_ids', JSON.stringify(updatedList));
+      setAllowedUsers(updatedList);
+      localStorage.setItem('mdo_allowed_users', JSON.stringify(updatedList));
     } catch (err) {
       console.error('Failed to remove ID:', err);
     } finally {
@@ -367,22 +381,7 @@ export default function App() {
     }
   };
 
-  const updateAppUserPin = async (newPin: string) => {
-    setAppUserPin(newPin);
-    localStorage.setItem('mdo_app_user_pin', newPin);
-    if (GOOGLE_SCRIPT_URL) {
-      try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update_user_pin', pin: newPin }),
-        });
-      } catch (err) {
-        console.error('Failed to sync PIN:', err);
-      }
-    }
-  };
+
 
   const removeLeave = async (id: number) => {
     setLeaves(prev => prev.filter(l => l.id !== id));
@@ -581,33 +580,21 @@ export default function App() {
             </div>
 
             <div className="flex-grow overflow-y-auto pr-2 space-y-6 custom-scrollbar">
-              {/* User PIN Management */}
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1">Global User Access PIN</label>
-                <div className="relative group">
-                  <input
-                    type="text"
-                    value={appUserPin}
-                    onChange={(e) => updateAppUserPin(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Set User PIN"
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-black tracking-widest text-xl"
-                  />
-                  <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500" size={20} />
-                </div>
-                <p className="text-[10px] text-slate-400 italic px-1 leading-tight">This PIN is required for all employees to enter the dashboard.</p>
-              </div>
-
               {/* Employee ID Whitelist */}
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1">Authorized Employee IDs</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] pl-1">Authorized Members</label>
+                  <span className="text-[9px] font-bold text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full">PINs Autogenerated</span>
+                </div>
+                
                 <form onSubmit={addEmployeeId} className="space-y-3">
                   <div className="relative group">
                     <input
                       type="text"
                       value={newIdInput}
-                      onChange={(e) => setNewIdInput(e.target.value)}
-                      placeholder="Add Employee ID (e.g. ST-001)..."
-                      className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-bold"
+                      onChange={(e) => setNewIdInput(e.target.value.toUpperCase())}
+                      placeholder="Enter ID (e.g. AB123)..."
+                      className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-bold"
                     />
                     <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600" size={20} />
                     <button
@@ -618,19 +605,23 @@ export default function App() {
                       <PlusCircle size={20} />
                     </button>
                   </div>
+                  <p className="text-[9px] text-slate-400 px-1 font-medium tracking-tight">Format: 2 letters + 3 numbers. PIN will be generated automatically.</p>
                 </form>
 
                 <div className="space-y-2">
-                  {allowedIds.map((id) => (
-                    <div key={id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-slate-200 dark:hover:border-slate-700">
+                  {allowedUsers.map((user) => (
+                    <div key={user.id} className="group relative flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-indigo-200 dark:hover:border-indigo-900/50">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
                           <UserCheck size={18} className="text-indigo-600 dark:text-indigo-400" />
                         </div>
-                        <span className="font-black text-slate-700 dark:text-slate-300 tracking-wider uppercase">{id}</span>
+                        <div className="flex flex-col">
+                          <span className="font-black text-slate-700 dark:text-slate-300 tracking-wider uppercase leading-none">{user.id}</span>
+                          <span className="text-[10px] text-indigo-500 font-bold tracking-[0.2em] mt-1">PIN: {user.pin}</span>
+                        </div>
                       </div>
                       <button
-                        onClick={() => removeEmployeeId(id)}
+                        onClick={() => removeEmployeeId(user.id)}
                         disabled={isUpdatingAccess}
                         className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all"
                         title="Revoke ID Access"
@@ -639,10 +630,10 @@ export default function App() {
                       </button>
                     </div>
                   ))}
-                  {allowedIds.length === 0 && (
+                  {allowedUsers.length === 0 && (
                     <div className="text-center py-8 opacity-20">
                       <Fingerprint size={48} className="mx-auto mb-2" />
-                      <p className="text-sm font-bold uppercase tracking-tighter">No Employee IDs Whitelisted</p>
+                      <p className="text-sm font-bold uppercase tracking-tighter">No Access Records</p>
                     </div>
                   )}
                 </div>
