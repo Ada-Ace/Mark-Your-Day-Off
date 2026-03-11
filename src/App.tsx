@@ -203,6 +203,7 @@ export default function App() {
       setIsAuthenticated(true);
       setShowLockScreen(false);
       setStoredEmployeeId(user.id);
+      setUserId(user.id);
       localStorage.setItem('mdo_employee_id', user.id);
       localStorage.setItem('mdo_authenticated', 'true');
       setPinInput('');
@@ -227,8 +228,8 @@ export default function App() {
 
   // Submitter State
   const [userOffice] = useState('HQ');
-  const [userId, setUserId] = useState('');
-  const [userName, setUserName] = useState('');
+  const [userId, setUserId] = useState(() => localStorage.getItem('mdo_employee_id') || '');
+  const [userName, setUserName] = useState(() => localStorage.getItem('mdo_user_name') || '');
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -310,8 +311,14 @@ export default function App() {
 
     setTimeout(() => {
       setShowSuccess(false);
-      setUserId('');
-      setUserName('');
+      // Only clear if not logged in
+      if (!storedEmployeeId) {
+        setUserId('');
+        setUserName('');
+      } else {
+        // Even if logged in, we might want to remember the name they just typed
+        localStorage.setItem('mdo_user_name', userName);
+      }
       setIsSubmitting(false);
       setView('dashboard');
     }, 1500);
