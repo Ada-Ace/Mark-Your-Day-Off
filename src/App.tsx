@@ -333,7 +333,7 @@ export default function App() {
           </div>
           <h1 className="font-bold text-lg tracking-tight dark:text-white">MDO</h1>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             className="p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-full transition-all"
@@ -341,6 +341,59 @@ export default function App() {
           >
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
+          
+          {/* Desktop Only Actions */}
+          <div className="hidden md:flex items-center gap-4 border-l border-slate-200 dark:border-slate-800 pl-4 ml-2">
+            <button
+              onClick={() => {
+                if (isAdmin) {
+                  setIsAdmin(false);
+                  setView('dashboard');
+                } else {
+                  setShowAdminLogin(true);
+                }
+              }}
+              className="p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-full transition-all"
+              title={isAdmin ? "Lock (Logout)" : "Admin Login"}
+            >
+              {isAdmin ? <Unlock size={20} className="text-indigo-500" /> : <Lock size={20} />}
+            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowAccessManager(true)}
+                className={`px-4 py-2 rounded-full text-sm font-bold transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2`}
+                title="Manage Access"
+              >
+                <ShieldCheck size={18} className="text-indigo-500" />
+                <span>Manage Access</span>
+              </button>
+            )}
+            <button
+              onClick={() => setView('dashboard')}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${view === 'dashboard' ? 'bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+            >
+              Overview
+            </button>
+            <motion.button
+              onClick={() => setView('submit')}
+              animate={{
+                scale: [1, 1.05, 1],
+                boxShadow: [
+                  "0px 0px 0px rgba(79, 70, 229, 0)",
+                  "0px 0px 20px rgba(79, 70, 229, 0.3)",
+                  "0px 0px 0px rgba(79, 70, 229, 0)"
+                ]
+              }}
+              transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-6 py-2.5 rounded-full text-sm font-black bg-indigo-600 text-white transition-colors shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40"
+            >
+              Mark Your Day-off
+            </motion.button>
+          </div>
+
+          {/* Mobile Admin Icon */}
           <button
             onClick={() => {
               if (isAdmin) {
@@ -350,54 +403,10 @@ export default function App() {
                 setShowAdminLogin(true);
               }
             }}
-            className="p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-full transition-all"
-            title={isAdmin ? "Lock (Logout)" : "Admin Login"}
+            className="md:hidden p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-full transition-all"
           >
             {isAdmin ? <Unlock size={20} className="text-indigo-500" /> : <Lock size={20} />}
           </button>
-          {isAdmin && (
-            <button
-              onClick={() => setShowAccessManager(true)}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2`}
-              title="Manage Access"
-            >
-              <ShieldCheck size={18} className="text-indigo-500" />
-              <span className="hidden md:inline">Manage Access</span>
-            </button>
-          )}
-          <button
-            onClick={() => setView('dashboard')}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${view === 'dashboard' ? 'bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-          >
-            Overview
-          </button>
-          <motion.button
-            onClick={() => setView('submit')}
-            animate={{
-              scale: [1, 1.05, 1],
-              boxShadow: [
-                "0px 0px 0px rgba(79, 70, 229, 0)",
-                "0px 0px 20px rgba(79, 70, 229, 0.3)",
-                "0px 0px 0px rgba(79, 70, 229, 0)"
-              ]
-            }}
-            transition={{
-              repeat: Infinity,
-              duration: 2.5,
-              ease: "easeInOut"
-            }}
-            whileHover={{
-              scale: 1.1,
-              boxShadow: "0px 8px 15px rgba(79, 70, 229, 0.4)"
-            }}
-            whileTap={{
-              scale: 0.95,
-              boxShadow: "0px 4px 8px rgba(79, 70, 229, 0.2)"
-            }}
-            className="px-5 py-2 rounded-full text-sm font-black bg-indigo-600 text-white transition-colors shadow-md"
-          >
-            Mark Your Day-off
-          </motion.button>
         </div>
       </nav>
 
@@ -591,19 +600,45 @@ export default function App() {
         </div>
       )}
 
-      {/* Floating Action Button */}
-      {view === 'dashboard' && (
-        <motion.button
-          onClick={() => setView('submit')}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="fixed bottom-6 right-6 bg-orange-500 text-white p-4 rounded-full shadow-xl hover:bg-orange-600 transition-colors z-50"
-        >
-          <PlusCircle className="w-6 h-6" />
-        </motion.button>
-      )}
+      {/* Mobile Bottom Dock */}
+      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] w-[90%] max-w-sm">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-2xl p-2 flex items-center justify-around relative overflow-hidden">
+          <button
+            onClick={() => setView('dashboard')}
+            className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${view === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-600'}`}
+          >
+            <LayoutDashboard size={24} />
+            <span className="text-[10px] font-black uppercase tracking-widest">Dash</span>
+          </button>
+
+          <motion.button
+            onClick={() => setView('submit')}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            animate={view === 'submit' ? {} : {
+              scale: [1, 1.08, 1],
+            }}
+            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+            className={`flex items-center justify-center w-16 h-16 rounded-[2rem] shadow-lg transition-all ${view === 'submit' ? 'bg-indigo-600 text-white rotate-45' : 'bg-indigo-600 text-white shadow-indigo-500/30'}`}
+          >
+            <PlusCircle size={32} className={view === 'submit' ? 'rotate-[-45deg]' : ''} />
+          </motion.button>
+
+          {isAdmin ? (
+            <button
+              onClick={() => setShowAccessManager(true)}
+              className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${showAccessManager ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-600'}`}
+            >
+              <ShieldCheck size={24} />
+              <span className="text-[10px] font-black uppercase tracking-widest">Access</span>
+            </button>
+          ) : (
+            <div className="w-[56px] flex items-center justify-center opacity-10">
+              <Lock size={20} className="text-slate-400" />
+            </div>
+          )}
+        </div>
+      </nav>
     </div>
   );
 }
