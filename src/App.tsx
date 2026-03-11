@@ -21,7 +21,8 @@ import {
   Unlock,
   KeyRound,
   Trash2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ShieldCheck
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -128,6 +129,15 @@ interface Leave {
   date: string;
 }
 
+interface RawLeave {
+  id: number | string;
+  userId?: string;
+  userName?: string;
+  office?: string;
+  type?: string;
+  date?: string;
+}
+
 // --- MAIN APP ---
 export default function App() {
   const [view, setView] = useState('submit'); // 'dashboard', 'submit', or 'history'
@@ -139,6 +149,32 @@ export default function App() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState(false);
+
+  // Admin Access Management
+  const [showAccessManager, setShowAccessManager] = useState(false);
+  const [newInviteCode, setNewInviteCode] = useState(import.meta.env.VITE_INVITE_CODE || 'MARKOFF2026');
+  const [isUpdatingInvite, setIsUpdatingInvite] = useState(false);
+
+  // Invite-Only State
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('mdo_authenticated') === 'true';
+  });
+  const [showLockScreen, setShowLockScreen] = useState(!isAuthenticated);
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteError, setInviteError] = useState(false);
+
+  const handleAuthentication = (e: React.FormEvent) => {
+    e.preventDefault();
+    const CORRECT_CODE = import.meta.env.VITE_INVITE_CODE || 'MARKOFF2026';
+    if (inviteCode.toUpperCase() === CORRECT_CODE.toUpperCase()) {
+      setIsAuthenticated(true);
+      setShowLockScreen(false);
+      localStorage.setItem('mdo_authenticated', 'true');
+      setInviteError(false);
+    } else {
+      setInviteError(true);
+    }
+  };
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,7 +205,7 @@ export default function App() {
     // Normalize a single leaf record from Google Sheets.
     // Google Sheets may auto-convert our date strings into Date objects
     // which serialize as UTC ISO timestamps — causing off-by-one day bugs.
-    const normalizeLeaf = (raw: any): Leave => {
+    const normalizeLeaf = (raw: RawLeave): Leave => {
       let dateStr: string = raw.date ?? '';
       // If GAS returned a full ISO timestamp (e.g. "2026-03-09T16:00:00.000Z"),
       // parse it as a Date and re-format using LOCAL time so it matches TODAY_ID.
@@ -245,11 +281,34 @@ export default function App() {
     }, 1500);
   };
 
+  const updateInviteCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newInviteCode.trim() || isUpdatingInvite) return;
+
+    setIsUpdatingInvite(true);
+
+    try {
+      if (GOOGLE_SCRIPT_URL) {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update_invite', code: newInviteCode.toUpperCase() }),
+        });
+      }
+
+      alert(`Invite code successfully updated to: ${newInviteCode.toUpperCase()}\n\nNote: For permanent changes, please update the VITE_INVITE_CODE in your Vercel/Environment settings.`);
+      setShowAccessManager(false);
+    } catch (err) {
+      console.error('Failed to update invite code:', err);
+    } finally {
+      setIsUpdatingInvite(false);
+    }
+  };
+
   const removeLeave = async (id: number) => {
-    // Optimistic UI: remove from local state immediately
     setLeaves(prev => prev.filter(l => l.id !== id));
 
-    // Sync deletion to Google Sheets backend
     if (GOOGLE_SCRIPT_URL) {
       try {
         await fetch(GOOGLE_SCRIPT_URL, {
@@ -296,6 +355,16 @@ export default function App() {
           >
             {isAdmin ? <Unlock size={20} className="text-indigo-500" /> : <Lock size={20} />}
           </button>
+          {isAdmin && (
+            <button
+              onClick={() => setShowAccessManager(true)}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2`}
+              title="Manage Access"
+            >
+              <ShieldCheck size={18} className="text-indigo-500" />
+              <span className="hidden md:inline">Manage Access</span>
+            </button>
+          )}
           <button
             onClick={() => setView('dashboard')}
             className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${view === 'dashboard' ? 'bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
@@ -405,6 +474,118 @@ export default function App() {
               >
                 Unlock
               </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Access Manager Modal */}
+      {showAccessManager && isAdmin && (
+        <div className="fixed inset-0 flex items-center justify-center bg-[#faf9f6]/95 dark:bg-slate-950/95 backdrop-blur-sm z-50 p-4">
+          <form onSubmit={updateInviteCode} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl space-y-8 w-full max-w-md border border-slate-100 dark:border-slate-800 animate-in zoom-in duration-300">
+            <div className="text-center space-y-3">
+              <div className="mx-auto w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-4">
+                <ShieldCheck className="text-indigo-600 dark:text-indigo-400 w-8 h-8" />
+              </div>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Access Control</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Manage the application invite code</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Current Invite Code</label>
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={newInviteCode}
+                    onChange={(e) => setNewInviteCode(e.target.value)}
+                    placeholder="Enter new code"
+                    className="w-full text-center tracking-[0.2em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-bold text-xs uppercase tracking-tight">
+                  <AlertCircle size={14} />
+                  Persistence Notice
+                </div>
+                <p className="text-[11px] text-amber-800/70 dark:text-amber-300/60 leading-relaxed font-medium">
+                  Changing this here updates the code for current session. To make it permanent, update <strong>VITE_INVITE_CODE</strong> in your Vercel Project Settings.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setShowAccessManager(false)}
+                className="flex-1 px-4 py-4 rounded-2xl font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-xs"
+              >
+                Close
+              </button>
+              <button
+                type="submit"
+                disabled={isUpdatingInvite}
+                className="flex-[2] px-4 py-4 rounded-2xl font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 uppercase tracking-widest text-xs disabled:opacity-50"
+              >
+                {isUpdatingInvite ? 'Updating...' : 'Update Code'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Invite-Only Lock Screen */}
+      {showLockScreen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-[#faf9f6] dark:bg-slate-950 backdrop-blur-md z-[100] p-4">
+          <div className="absolute inset-0 bg-indigo-600/5 dark:bg-indigo-500/5 animate-pulse pointer-events-none"></div>
+          <form onSubmit={handleAuthentication} className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[2.5rem] shadow-2xl space-y-8 w-full max-w-md border border-slate-200 dark:border-slate-800/50 relative overflow-hidden animate-in fade-in zoom-in duration-500">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+
+            <div className="text-center space-y-3 relative">
+              <div className="mx-auto w-20 h-20 bg-indigo-600 dark:bg-indigo-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 transform -rotate-6">
+                <LayoutDashboard className="text-white w-10 h-10" />
+              </div>
+              <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Mark Your Day-Off</h1>
+              <p className="text-slate-500 dark:text-slate-400 font-medium">Private Access only. Please enter your invite code to enter.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative group">
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="Invite Code"
+                  autoFocus
+                  className="w-full text-center tracking-[0.2em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
+                />
+                <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
+              </div>
+              {inviteError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-red-500 text-sm text-center font-bold flex items-center justify-center gap-2"
+                >
+                  <AlertCircle size={16} />
+                  Access Denied: Invalid Code
+                </motion.div>
+              )}
+            </div>
+
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full py-5 rounded-2xl font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 text-lg uppercase tracking-wider"
+            >
+              Enter Dashboard
+            </motion.button>
+
+            <div className="text-center">
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Powered by Antigravity AI Engine</p>
             </div>
           </form>
         </div>
@@ -745,7 +926,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ leaves, onRemove, onBack, isA
             <Filter size={18} className="text-slate-400 dark:text-slate-500" />
             <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as any)}
+              onChange={(e) => setTypeFilter(e.target.value as 'all' | keyof typeof LEAVE_TYPES)}
               className="bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all dark:text-white"
             >
               <option value="all">All Leave Types</option>
@@ -842,7 +1023,7 @@ const HistoryView: React.FC<HistoryViewProps> = ({ leaves, onRemove, onBack, isA
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className={`flex items-center gap-1.5 text-sm font-bold ${LEAVE_TYPES[leave.type].text}`}>
-                        {React.cloneElement(LEAVE_TYPES[leave.type].icon, { size: 14 } as any)}
+                        {React.cloneElement(LEAVE_TYPES[leave.type].icon as React.ReactElement<{ size: number }>, { size: 14 })}
                         {LEAVE_TYPES[leave.type].label}
                       </div>
                     </td>
@@ -996,7 +1177,7 @@ const OfficeColumn: React.FC<OfficeColumnProps> = ({ office, leaves, onRemove, h
             >
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-full ${LEAVE_TYPES[leave.type].color} text-white`}>
-                  {React.cloneElement(LEAVE_TYPES[leave.type].icon, { size: 16 } as any)}
+                  {React.cloneElement(LEAVE_TYPES[leave.type].icon as React.ReactElement<{ size: number }>, { size: 16 })}
                 </div>
                 <div>
                   <div className="font-bold text-slate-800 dark:text-slate-200 leading-none mb-1">{leave.userName}</div>

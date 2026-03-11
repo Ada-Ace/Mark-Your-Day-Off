@@ -1,23 +1,25 @@
 # Mark Your Day-Off (MDO)
 
-MDO is a modern, responsive web application for teams to submit and track short-term leaves (Medical & Urgent/Personal) across office locations. It is backed by a Google Apps Script / Google Sheets database and features a role-based access system to separate regular users from administrators.
+MDO is a modern, responsive web application for teams to submit and track short-term leaves (Medical & Urgent/Personal) across office locations. It features an **Invite-Only Secure Access** system and a robust **Admin Panel** for managing records and system access. The app is backed by a Google Apps Script / Google Sheets database.
 
 ---
 
 ## Features
 
 ### For All Users
+- **Invite-Only Access** — Secure entry requires a team-wide invite code.
 - **Quick Leave Submission** — Mark yourself as away for *Today* or the *Next Work Day* (Medical or Urgent Leave).
 - **Live Dashboard** — See who is away today and the next working day across all offices.
 - **Dark Mode** — Toggle between a comfortable warm light theme and a sleek dark theme.
 - **Timezone-Aware** — Dates are computed using local time (not UTC), ensuring accuracy for GMT+8 and other non-UTC timezones.
 
 ### For Admins Only *(PIN-protected)*
+- **Manage Access** — Admins can update the application's invite code directly from the UI using the **Shield Access Manager**.
 - **View History** — Browse the full record of all submitted leaves with search, filter, and sort.
 - **Filter by Date Range / Leave Type** — Narrow down records with flexible filters.
 - **Export to Excel** — Download the current view to a `.xlsx` file.
-- **Delete Records** — Permanently remove incorrect or outdated records (synced to Google Sheets).
-- **Confirmation Prompts** — Every admin action (delete, export) requires a confirmation step to prevent accidents.
+- **Remove Users & Records** — Admins can clear a user's status from the dashboard (via hover) or delete entries from history.
+- **Confirmation Prompts** — Every admin action (delete, export, update code) requires a confirmation step to prevent accidents.
 
 ---
 
@@ -58,7 +60,8 @@ MDO is a modern, responsive web application for teams to submit and track short-
    VITE_APP_TITLE="Mark Your Day-Off"
    VITE_GOOGLE_APPS_SCRIPT_URL="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
    VITE_DEFAULT_OFFICE="HQ"
-   VITE_ADMIN_PIN="your_pin_here"
+   VITE_ADMIN_PIN="123456"
+   VITE_INVITE_CODE="MARKOFF2026"
    ```
 
 4. **Start the development server:**
@@ -179,8 +182,12 @@ function doPost(e) {
 
 Click the **🔒 Lock icon** in the top navigation bar to open the Admin PIN prompt.
 
-- Once authenticated, the following are unlocked: **View History**, **Export to Excel**, **Delete Records**.
-- Every admin action requires a **confirmation dialog** before executing.
+- Once authenticated, the following are unlocked: **Manage Access**, **View History**, **Export to Excel**, **Delete Records**.
+- **Manage Access (🛡️ Shield Icon)**: Opens the Access Manager where admins can change the team-wide invite code. 
+    > [!TIP]
+    > Changes made in the UI are applied to the active session immediately. For permanent changes that persist across redeploys, please update the `VITE_INVITE_CODE` environment variable in your Vercel settings.
+- **Clear Status (🗑️ Trash Icon)**: Admins can remove a user's leave directly from the **Dashboard** (by hovering over their name) or from the **History View**.
+- Every admin action requires a **confirmation dialog** before executing to ensure data integrity.
 - Click the **🔓 Unlock icon** to log out of admin mode.
 
 The Admin PIN is stored in your `.env` file as `VITE_ADMIN_PIN`.
@@ -195,6 +202,7 @@ The Admin PIN is stored in your `.env` file as `VITE_ADMIN_PIN`.
 | `VITE_GOOGLE_APPS_SCRIPT_URL` | Your deployed GAS Web App URL |
 | `VITE_DEFAULT_OFFICE` | Default office code (e.g. `HQ`) |
 | `VITE_ADMIN_PIN` | PIN to unlock admin-only features |
+| `VITE_INVITE_CODE` | Team-wide code required to enter the app |
 
 > **Note:** After changing any `.env` value, restart the dev server (`npm run dev`) for changes to take effect.
 
