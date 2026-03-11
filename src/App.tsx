@@ -22,7 +22,9 @@ import {
   KeyRound,
   Trash2,
   FileSpreadsheet,
-  ShieldCheck
+  ShieldCheck,
+  Phone,
+  X
 } from 'lucide-react';
 
 // --- CONFIGURATION ---
@@ -152,27 +154,30 @@ export default function App() {
 
   // Admin Access Management
   const [showAccessManager, setShowAccessManager] = useState(false);
-  const [newInviteCode, setNewInviteCode] = useState(import.meta.env.VITE_INVITE_CODE || 'MARKOFF2026');
-  const [isUpdatingInvite, setIsUpdatingInvite] = useState(false);
+  const [allowedMobiles, setAllowedMobiles] = useState<string[]>(() => {
+    const saved = localStorage.getItem('mdo_allowed_mobiles');
+    return saved ? JSON.parse(saved) : ['0123456789']; // Default initial number
+  });
+  const [newMobileInput, setNewMobileInput] = useState('');
+  const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
 
-  // Invite-Only State
+  // Access State
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('mdo_authenticated') === 'true';
   });
   const [showLockScreen, setShowLockScreen] = useState(!isAuthenticated);
-  const [inviteCode, setInviteCode] = useState('');
-  const [inviteError, setInviteError] = useState(false);
+  const [mobileEntry, setMobileEntry] = useState('');
+  const [authError, setAuthError] = useState(false);
 
   const handleAuthentication = (e: React.FormEvent) => {
     e.preventDefault();
-    const CORRECT_CODE = import.meta.env.VITE_INVITE_CODE || 'MARKOFF2026';
-    if (inviteCode.toUpperCase() === CORRECT_CODE.toUpperCase()) {
+    if (allowedMobiles.includes(mobileEntry.trim())) {
       setIsAuthenticated(true);
       setShowLockScreen(false);
       localStorage.setItem('mdo_authenticated', 'true');
-      setInviteError(false);
+      setAuthError(false);
     } else {
-      setInviteError(true);
+      setAuthError(true);
     }
   };
 
@@ -280,12 +285,13 @@ export default function App() {
       setView('dashboard');
     }, 1500);
   };
-
-  const updateInviteCode = async (e: React.FormEvent) => {
+  const addMobileNumber = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newInviteCode.trim() || isUpdatingInvite) return;
+    const num = newMobileInput.trim();
+    if (!num || allowedMobiles.includes(num) || isUpdatingAccess) return;
 
-    setIsUpdatingInvite(true);
+    setIsUpdatingAccess(true);
+    const updatedList = [...allowedMobiles, num];
 
     try {
       if (GOOGLE_SCRIPT_URL) {
@@ -293,16 +299,41 @@ export default function App() {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'update_invite', code: newInviteCode.toUpperCase() }),
+          body: JSON.stringify({ action: 'add_mobile', mobile: num }),
         });
       }
 
-      alert(`Invite code successfully updated to: ${newInviteCode.toUpperCase()}\n\nNote: For permanent changes, please update the VITE_INVITE_CODE in your Vercel/Environment settings.`);
-      setShowAccessManager(false);
+      setAllowedMobiles(updatedList);
+      localStorage.setItem('mdo_allowed_mobiles', JSON.stringify(updatedList));
+      setNewMobileInput('');
     } catch (err) {
-      console.error('Failed to update invite code:', err);
+      console.error('Failed to add mobile:', err);
     } finally {
-      setIsUpdatingInvite(false);
+      setIsUpdatingAccess(false);
+    }
+  };
+
+  const removeMobileNumber = async (num: string) => {
+    if (isUpdatingAccess) return;
+    setIsUpdatingAccess(true);
+    const updatedList = allowedMobiles.filter(m => m !== num);
+
+    try {
+      if (GOOGLE_SCRIPT_URL) {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove_mobile', mobile: num }),
+        });
+      }
+
+      setAllowedMobiles(updatedList);
+      localStorage.setItem('mdo_allowed_mobiles', JSON.stringify(updatedList));
+    } catch (err) {
+      console.error('Failed to remove mobile:', err);
+    } finally {
+      setIsUpdatingAccess(false);
     }
   };
 
@@ -492,57 +523,74 @@ export default function App() {
       {/* Access Manager Modal */}
       {showAccessManager && isAdmin && (
         <div className="fixed inset-0 flex items-center justify-center bg-[#faf9f6]/95 dark:bg-slate-950/95 backdrop-blur-sm z-50 p-4">
-          <form onSubmit={updateInviteCode} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl space-y-8 w-full max-w-md border border-slate-100 dark:border-slate-800 animate-in zoom-in duration-300">
-            <div className="text-center space-y-3">
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl space-y-8 w-full max-w-md border border-slate-100 dark:border-slate-800 animate-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+            <div className="text-center space-y-2 flex-shrink-0">
               <div className="mx-auto w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-4">
                 <ShieldCheck className="text-indigo-600 dark:text-indigo-400 w-8 h-8" />
               </div>
               <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Access Control</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Manage the application invite code</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Authorized Mobile Numbers</p>
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-1">Current Invite Code</label>
+            <div className="flex-grow overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+              <form onSubmit={addMobileNumber} className="space-y-3">
                 <div className="relative group">
                   <input
-                    type="text"
-                    value={newInviteCode}
-                    onChange={(e) => setNewInviteCode(e.target.value)}
-                    placeholder="Enter new code"
-                    className="w-full text-center tracking-[0.2em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white"
+                    type="tel"
+                    value={newMobileInput}
+                    onChange={(e) => setNewMobileInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Add new mobile number..."
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-bold"
                   />
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600" size={20} />
+                  <button
+                    type="submit"
+                    disabled={isUpdatingAccess || !newMobileInput}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  >
+                    <PlusCircle size={20} />
+                  </button>
                 </div>
-              </div>
+              </form>
 
-              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-2xl space-y-2">
-                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-bold text-xs uppercase tracking-tight">
-                  <AlertCircle size={14} />
-                  Persistence Notice
-                </div>
-                <p className="text-[11px] text-amber-800/70 dark:text-amber-300/60 leading-relaxed font-medium">
-                  Changing this here updates the code for current session. To make it permanent, update <strong>VITE_INVITE_CODE</strong> in your Vercel Project Settings.
-                </p>
+              <div className="space-y-2">
+                {allowedMobiles.map((mobile) => (
+                  <div key={mobile} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-slate-200 dark:hover:border-slate-700">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
+                        <Phone size={18} className="text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <span className="font-black text-slate-700 dark:text-slate-300 tracking-wider">{mobile}</span>
+                    </div>
+                    <button
+                      onClick={() => removeMobileNumber(mobile)}
+                      disabled={isUpdatingAccess}
+                      className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all"
+                      title="Revoke Access"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                ))}
+                {allowedMobiles.length === 0 && (
+                  <div className="text-center py-8 opacity-20">
+                    <Phone size={48} className="mx-auto mb-2" />
+                    <p className="text-sm font-bold uppercase tracking-tighter">No Access Granted</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex gap-4">
+            <div className="pt-4 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setShowAccessManager(false)}
-                className="flex-1 px-4 py-4 rounded-2xl font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-xs"
+                className="w-full px-4 py-4 rounded-2xl font-black text-white bg-slate-900 dark:bg-slate-800 hover:bg-black dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-xs shadow-xl shadow-slate-200 dark:shadow-black/40"
               >
-                Close
-              </button>
-              <button
-                type="submit"
-                disabled={isUpdatingInvite}
-                className="flex-[2] px-4 py-4 rounded-2xl font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 uppercase tracking-widest text-xs disabled:opacity-50"
-              >
-                {isUpdatingInvite ? 'Updating...' : 'Update Code'}
+                Done
               </button>
             </div>
-          </form>
+          </div>
         </div>
       )}
 
@@ -558,29 +606,29 @@ export default function App() {
                 <LayoutDashboard className="text-white w-10 h-10" />
               </div>
               <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Mark Your Day-Off</h1>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">Private Access only. Please enter your invite code to enter.</p>
+              <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight leading-snug">Private Access. Please enter your registered mobile number to proceed.</p>
             </div>
 
             <div className="space-y-4">
               <div className="relative group">
                 <input
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="Invite Code"
+                  type="tel"
+                  value={mobileEntry}
+                  onChange={(e) => setMobileEntry(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Mobile Number"
                   autoFocus
-                  className="w-full text-center tracking-[0.2em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
+                  className="w-full text-center tracking-[0.1em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
                 />
                 <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
               </div>
-              {inviteError && (
+              {authError && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-red-500 text-sm text-center font-bold flex items-center justify-center gap-2"
                 >
                   <AlertCircle size={16} />
-                  Access Denied: Invalid Code
+                  Mobile Number not recognized
                 </motion.div>
               )}
             </div>
