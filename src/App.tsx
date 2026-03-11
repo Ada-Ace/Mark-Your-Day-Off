@@ -169,7 +169,10 @@ export default function App() {
       return ids.map((id: string) => ({ id: id.toUpperCase(), pin: '1234' }));
     }
     
-    return [{ id: 'ST-001', pin: '1234' }];
+    return [
+      { id: 'ST-001', pin: '1234' },
+      { id: 'SS-023', pin: '1431' }
+    ];
   });
   const [newIdInput, setNewIdInput] = useState('');
   const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
