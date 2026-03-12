@@ -49,35 +49,40 @@ const formatShortDate = (date: Date) => {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-const getNextWorkDay = (date: Date) => {
+const getTomorrow = (date: Date) => {
   const next = new Date(date);
   next.setDate(next.getDate() + 1);
-  while (next.getDay() === 0 || next.getDay() === 6) {
-    next.setDate(next.getDate() + 1);
-  }
   return next;
 };
 
-const getEffectiveToday = (date: Date) => {
-  const d = new Date(date);
-  while (d.getDay() === 0 || d.getDay() === 6) {
-    d.setDate(d.getDate() + 1);
-  }
-  return d;
-};
-
-const getPrevWorkDay = (date: Date) => {
+const getYesterday = (date: Date) => {
   const prev = new Date(date);
   prev.setDate(prev.getDate() - 1);
-  while (prev.getDay() === 0 || prev.getDay() === 6) {
-    prev.setDate(prev.getDate() - 1);
-  }
   return prev;
 };
 
-const TODAY_DATE = getEffectiveToday(new Date());
-const TOMORROW_DATE = getNextWorkDay(TODAY_DATE);
-const YESTERDAY_DATE = getPrevWorkDay(TODAY_DATE);
+const SG_HOLIDAYS: Record<string, string> = {
+  '2026-01-01': "New Year's Day",
+  '2026-02-17': 'Chinese New Year',
+  '2026-02-18': 'Chinese New Year',
+  '2026-03-21': 'Hari Raya Puasa',
+  '2026-04-03': 'Good Friday',
+  '2026-05-01': 'Labour Day',
+  '2026-05-27': 'Hari Raya Haji',
+  '2026-05-31': 'Vesak Day',
+  '2026-06-01': 'Vesak Day (In-lieu)',
+  '2026-08-09': 'National Day',
+  '2026-08-10': 'National Day (In-lieu)',
+  '2026-11-08': 'Deepavali',
+  '2026-11-09': 'Deepavali (In-lieu)',
+  '2026-12-25': 'Christmas Day'
+};
+
+const getHolidayName = (dateId: string) => SG_HOLIDAYS[dateId] || null;
+
+const TODAY_DATE = new Date();
+const TOMORROW_DATE = getTomorrow(TODAY_DATE);
+const YESTERDAY_DATE = getYesterday(TODAY_DATE);
 
 // Use local date (not UTC) to avoid timezone off-by-one errors (e.g. GMT+8)
 const toLocalDateId = (date: Date) => {
@@ -1091,8 +1096,13 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
               <span className="w-2 h-2 rounded-full bg-indigo-600 dark:bg-indigo-500"></span>
               Today
             </h3>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end">
               <span className="text-lg font-bold text-indigo-400 dark:text-indigo-500/80 uppercase tracking-wider">{TODAY_LABEL}</span>
+              {getHolidayName(TODAY_ID) && (
+                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tighter bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 rounded mt-1">
+                  🇸🇬 {getHolidayName(TODAY_ID)}
+                </span>
+              )}
             </div>
           </div>
           {OFFICES.map(office => (
@@ -1115,7 +1125,14 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
               <span className="w-2 h-2 rounded-full bg-slate-700 dark:bg-slate-400"></span>
               Tomorrow
             </h3>
-            <span className="text-lg font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{TOMORROW_LABEL}</span>
+            <div className="flex flex-col items-end">
+              <span className="text-lg font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{TOMORROW_LABEL}</span>
+              {getHolidayName(TOMORROW_ID) && (
+                <span className="text-[10px] font-black text-slate-100 bg-slate-800 dark:bg-slate-700 px-2 py-0.5 rounded mt-1 tracking-tighter">
+                  🇸🇬 {getHolidayName(TOMORROW_ID)}
+                </span>
+              )}
+            </div>
           </div>
           {OFFICES.map(office => (
             <OfficeColumn
@@ -1136,7 +1153,14 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
               <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700"></span>
               Yesterday
             </h3>
-            <span className="text-lg font-bold text-slate-300 dark:text-slate-700 uppercase tracking-wider">{YESTERDAY_LABEL}</span>
+            <div className="flex flex-col items-end">
+              <span className="text-lg font-bold text-slate-300 dark:text-slate-700 uppercase tracking-wider">{YESTERDAY_LABEL}</span>
+              {getHolidayName(YESTERDAY_ID) && (
+                <span className="text-[10px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-0.5 rounded mt-1 tracking-tighter">
+                  🇸🇬 {getHolidayName(YESTERDAY_ID)}
+                </span>
+              )}
+            </div>
           </div>
           {OFFICES.map(office => (
             <OfficeColumn
