@@ -102,11 +102,20 @@ const toTitleCase = (str: string) => {
 };
 
 const formatUserId = (id: string) => {
-  const cleaned = id.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  if (cleaned.length >= 5) {
-    return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 5)}`;
+  let result = '';
+  const u = id.toUpperCase();
+  for (let i = 0; i < u.length; i++) {
+    const char = u[i];
+    if (result.replace('-', '').length < 2) {
+      if (/[A-Z]/.test(char)) result += char;
+    } else {
+      if (/[0-9]/.test(char) && result.replace('-', '').length < 5) {
+        if (!result.includes('-')) result += '-';
+        result += char;
+      }
+    }
   }
-  return cleaned;
+  return result;
 };
 
 const LEAVE_TYPES = {
@@ -500,8 +509,9 @@ export default function App() {
                   <input
                     type="text"
                     value={employeeIdInput}
-                    onChange={(e) => setEmployeeIdInput(e.target.value)}
-                    placeholder="Employee ID"
+                    onChange={(e) => setEmployeeIdInput(formatUserId(e.target.value))}
+                    placeholder="e.g. AB-123"
+                    maxLength={6}
                     autoFocus
                     className="w-full text-center tracking-[0.1em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
                   />
@@ -923,9 +933,10 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
               type="text"
               required
               disabled={!!storedEmployeeId}
-              placeholder="Enter Employee ID"
+              placeholder="e.g. AB-123"
+              maxLength={6}
               value={storedEmployeeId || userId}
-              onChange={(e) => setUserId(e.target.value)}
+              onChange={(e) => setUserId(formatUserId(e.target.value))}
               className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-black uppercase disabled:opacity-70 disabled:bg-slate-100 dark:disabled:bg-slate-800"
             />
           </div>
