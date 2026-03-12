@@ -25,7 +25,8 @@ import {
   ShieldCheck,
   Fingerprint,
   UserCheck,
-  X
+  X,
+  Power
 } from 'lucide-react';
 
 interface UserAccess {
@@ -159,16 +160,26 @@ export default function App() {
   // Admin Access Management
   const [showAccessManager, setShowAccessManager] = useState(false);
   const [allowedUsers, setAllowedUsers] = useState<UserAccess[]>(() => {
-    const saved = localStorage.getItem('mdo_allowed_users');
-    if (saved) return JSON.parse(saved);
-    
-    // Migration from legacy mdo_allowed_ids
-    const legacy = localStorage.getItem('mdo_allowed_ids');
-    if (legacy) {
-      const ids = JSON.parse(legacy);
-      return ids.map((id: string) => ({ id: id.toUpperCase(), pin: '1234' }));
+    try {
+      const saved = localStorage.getItem('mdo_allowed_users');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      
+      const legacy = localStorage.getItem('mdo_allowed_ids');
+      if (legacy) {
+        const ids = JSON.parse(legacy);
+        if (Array.isArray(ids)) {
+          return ids.map((id: any) => ({ 
+            id: String(id).toUpperCase(), 
+            pin: '1234' 
+          }));
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse allowed users:', e);
     }
-    
     return [
       { id: 'ST-001', pin: '1234' },
       { id: 'SS-023', pin: '1431' }
@@ -179,12 +190,21 @@ export default function App() {
 
   // Access State
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('mdo_authenticated') === 'true';
+    try {
+      return localStorage.getItem('mdo_authenticated') === 'true';
+    } catch (e) {
+      return false;
+    }
   });
+
   const [storedEmployeeId, setStoredEmployeeId] = useState(() => {
-    return localStorage.getItem('mdo_employee_id') || '';
+    try {
+      return localStorage.getItem('mdo_employee_id') || '';
+    } catch (e) {
+      return '';
+    }
   });
-  const [showLockScreen, setShowLockScreen] = useState(!isAuthenticated);
+
   
   const [employeeIdInput, setEmployeeIdInput] = useState('');
   const [pinInput, setPinInput] = useState('');
@@ -204,7 +224,7 @@ export default function App() {
 
     if (pinInput === user.pin) {
       setIsAuthenticated(true);
-      setShowLockScreen(false);
+
       setStoredEmployeeId(user.id);
       setUserId(user.id);
       localStorage.setItem('mdo_employee_id', user.id);
@@ -218,7 +238,7 @@ export default function App() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const CORRECT_PIN = import.meta.env.VITE_ADMIN_PIN || '123456';
+    const CORRECT_PIN = import.meta.env.VITE_ADMIN_PIN || 'MD141319';
     if (adminPin === CORRECT_PIN) {
       setIsAdmin(true);
       setShowAdminLogin(false);
@@ -390,9 +410,6 @@ export default function App() {
       setIsUpdatingAccess(false);
     }
   };
-
-
-
   const removeLeave = async (id: number) => {
     setLeaves(prev => prev.filter(l => l.id !== id));
 
@@ -409,6 +426,107 @@ export default function App() {
       }
     }
   };
+
+  // Logout / Switch User
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setIsAdmin(false);
+    localStorage.removeItem('mdo_authenticated');
+    // We keep mdo_employee_id for the "Welcome back" feature
+  };
+
+  // If NOT Authenticated, show ONLY the Lock Screen
+  if (!isAuthenticated) {
+    return (
+      <div className={`min-h-dvh ${isDarkMode ? 'dark' : ''} bg-[#f4f2ee] dark:bg-slate-950 transition-colors duration-300`}>
+        <div className="fixed inset-0 flex items-center justify-center bg-[#faf9f6] dark:bg-slate-950 backdrop-blur-md z-[100] p-4">
+          <div className="absolute inset-0 bg-indigo-600/5 dark:bg-indigo-500/5 animate-pulse pointer-events-none"></div>
+          <form onSubmit={handleAuthentication} className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[2.5rem] shadow-2xl space-y-8 w-full max-w-md border border-slate-200 dark:border-slate-800/50 relative overflow-hidden animate-in fade-in zoom-in duration-500">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+
+            <div className="text-center space-y-3 relative">
+              <div className="mx-auto w-20 h-20 bg-indigo-600 dark:bg-indigo-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 transform -rotate-6">
+                <LayoutDashboard className="text-white w-10 h-10" />
+              </div>
+              <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Mark Your Day-Off</h1>
+              <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight leading-snug">
+                {storedEmployeeId ? `Welcome back, ${storedEmployeeId}` : 'Authorized Access Only'}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {!storedEmployeeId && (
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={employeeIdInput}
+                    onChange={(e) => setEmployeeIdInput(e.target.value)}
+                    placeholder="Employee ID"
+                    autoFocus
+                    className="w-full text-center tracking-[0.1em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
+                  />
+                  <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700" size={24} />
+                  <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
+                </div>
+              )}
+              
+              <div className="relative group">
+                <input
+                  type="password"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="Access PIN"
+                  className="w-full text-center tracking-[0.5em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
+                />
+                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700" size={24} />
+                <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
+              </div>
+
+              {authError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-red-500 text-sm text-center font-bold flex items-center justify-center gap-2"
+                >
+                  <AlertCircle size={16} />
+                  {authError}
+                </motion.div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <motion.button
+                type="submit"
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full py-5 rounded-2xl font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 text-lg uppercase tracking-wider"
+              >
+                Unlock Access
+              </motion.button>
+              
+              {storedEmployeeId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.removeItem('mdo_employee_id');
+                    setStoredEmployeeId('');
+                    setEmployeeIdInput('');
+                  }}
+                  className="w-full text-xs font-bold text-slate-400 hover:text-indigo-500 uppercase tracking-widest transition-colors"
+                >
+                  Sign in with a different ID
+                </button>
+              )}
+            </div>
+
+            <div className="text-center pt-4">
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Powered by Antigravity AI Engine</p>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-dvh ${isDarkMode ? 'dark' : ''} bg-[#f4f2ee] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-20 transition-colors duration-300`}>
@@ -435,15 +553,21 @@ export default function App() {
               onClick={() => {
                 if (isAdmin) {
                   setIsAdmin(false);
-                  setView('dashboard');
                 } else {
                   setShowAdminLogin(true);
                 }
               }}
               className="p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-full transition-all"
-              title={isAdmin ? "Lock (Logout)" : "Admin Login"}
+              title={isAdmin ? "Lock Admin Mode" : "Admin Login"}
             >
               {isAdmin ? <Unlock size={20} className="text-indigo-500" /> : <Lock size={20} />}
+            </button>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-full transition-all"
+              title="Logout / Switch User"
+            >
+              <Power size={20} className="text-red-500/70" />
             </button>
             {isAdmin && (
               <button
@@ -486,7 +610,6 @@ export default function App() {
             onClick={() => {
               if (isAdmin) {
                 setIsAdmin(false);
-                setView('dashboard');
               } else {
                 setShowAdminLogin(true);
               }
@@ -494,6 +617,12 @@ export default function App() {
             className="md:hidden p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-full transition-all"
           >
             {isAdmin ? <Unlock size={20} className="text-indigo-500" /> : <Lock size={20} />}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="md:hidden p-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-full transition-all"
+          >
+            <Power size={20} className="text-red-500/70" />
           </button>
         </div>
       </nav>
@@ -663,78 +792,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Invite-Only Lock Screen */}
-      {showLockScreen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-[#faf9f6] dark:bg-slate-950 backdrop-blur-md z-[100] p-4">
-          <div className="absolute inset-0 bg-indigo-600/5 dark:bg-indigo-500/5 animate-pulse pointer-events-none"></div>
-          <form onSubmit={handleAuthentication} className="bg-white dark:bg-slate-900 p-8 md:p-10 rounded-[2.5rem] shadow-2xl space-y-8 w-full max-w-md border border-slate-200 dark:border-slate-800/50 relative overflow-hidden animate-in fade-in zoom-in duration-500">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full -mr-16 -mt-16 blur-3xl"></div>
-
-            <div className="text-center space-y-3 relative">
-              <div className="mx-auto w-20 h-20 bg-indigo-600 dark:bg-indigo-500 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-indigo-200 dark:shadow-indigo-900/50 transform -rotate-6">
-                <LayoutDashboard className="text-white w-10 h-10" />
-              </div>
-              <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Mark Your Day-Off</h1>
-              <p className="text-slate-500 dark:text-slate-400 font-medium tracking-tight leading-snug">
-                {storedEmployeeId ? `Welcome back, ${storedEmployeeId}` : 'Authorized Access Only'}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {!storedEmployeeId && (
-                <div className="relative group">
-                  <input
-                    type="text"
-                    value={employeeIdInput}
-                    onChange={(e) => setEmployeeIdInput(e.target.value)}
-                    placeholder="Employee ID"
-                    autoFocus
-                    className="w-full text-center tracking-[0.1em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
-                  />
-                  <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700" size={24} />
-                  <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
-                </div>
-              )}
-              
-              <div className="relative group">
-                <input
-                  type="password"
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="Access PIN"
-                  className="w-full text-center tracking-[0.5em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
-                />
-                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700" size={24} />
-                <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
-              </div>
-
-              {authError && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-red-500 text-sm text-center font-bold flex items-center justify-center gap-2"
-                >
-                  <AlertCircle size={16} />
-                  {authError}
-                </motion.div>
-              )}
-            </div>
-
-            <motion.button
-              type="submit"
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full py-5 rounded-2xl font-black text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 text-lg uppercase tracking-wider"
-            >
-              Unlock Access
-            </motion.button>
-
-            <div className="text-center">
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Powered by Antigravity AI Engine</p>
-            </div>
-          </form>
-        </div>
-      )}
 
       {/* Mobile Bottom Dock */}
       <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] w-[90%] max-w-sm">
