@@ -255,6 +255,7 @@ export default function App() {
       setShowAdminLogin(false);
       setAdminPin('');
       setPinError(false);
+      setView('dashboard');
     } else {
       setPinError(true);
     }
