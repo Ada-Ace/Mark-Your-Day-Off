@@ -156,6 +156,11 @@ export default function App() {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [pinError, setPinError] = useState(false);
+  
+  const [showChangePin, setShowChangePin] = useState(false);
+  const [newPinInput, setNewPinInput] = useState('');
+  const [isUpdatingPin, setIsUpdatingPin] = useState(false);
+  const [pinUpdateError, setPinUpdateError] = useState('');
 
   // Admin Access Management
   const [showAccessManager, setShowAccessManager] = useState(false);
@@ -410,6 +415,42 @@ export default function App() {
       setIsUpdatingAccess(false);
     }
   };
+
+  const handleUpdatePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPinInput.length !== 4 || isNaN(Number(newPinInput))) {
+      setPinUpdateError('PIN must be 4 digits');
+      return;
+    }
+
+    setIsUpdatingPin(true);
+    setPinUpdateError('');
+
+    try {
+      const updatedList = allowedUsers.map(u => 
+        u.id === storedEmployeeId ? { ...u, pin: newPinInput } : u
+      );
+
+      if (GOOGLE_SCRIPT_URL) {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'update_user_pin', id: storedEmployeeId, pin: newPinInput }),
+        });
+      }
+
+      setAllowedUsers(updatedList);
+      localStorage.setItem('mdo_allowed_users', JSON.stringify(updatedList));
+      setShowChangePin(false);
+      setNewPinInput('');
+    } catch (err) {
+      console.error('Failed to update PIN:', err);
+      setPinUpdateError('Database sync failed. Please try again.');
+    } finally {
+      setIsUpdatingPin(false);
+    }
+  };
   const removeLeave = async (id: number) => {
     setLeaves(prev => prev.filter(l => l.id !== id));
 
@@ -605,7 +646,13 @@ export default function App() {
             </motion.button>
           </div>
 
-          {/* Mobile Admin Icon */}
+          <button
+            onClick={() => setView('dashboard')}
+            className={`md:hidden p-2 rounded-full transition-all ${view === 'dashboard' ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            title="Dashboard"
+          >
+            <LayoutDashboard size={20} />
+          </button>
           <button
             onClick={() => {
               if (isAdmin) {
@@ -646,7 +693,13 @@ export default function App() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
           </div>
         ) : view === 'dashboard' ? (
-          <Dashboard leaves={leaves} onRemove={removeLeave} onGoToHistory={() => setView('history')} isAdmin={isAdmin} />
+          <Dashboard 
+            leaves={leaves} 
+            onRemove={removeLeave} 
+            onGoToHistory={() => setView('history')} 
+            onManageAccess={() => setShowAccessManager(true)}
+            isAdmin={isAdmin} 
+          />
         ) : view === 'history' && isAdmin ? (
           <HistoryView leaves={leaves} onRemove={removeLeave} onBack={() => setView('dashboard')} isAdmin={isAdmin} />
         ) : (
@@ -656,6 +709,7 @@ export default function App() {
             userName={userName}
             setUserName={setUserName}
             onAdd={addLeave}
+            onChangePin={() => setShowChangePin(true)}
             showSuccess={showSuccess}
             isSubmitting={isSubmitting}
             storedEmployeeId={storedEmployeeId}
@@ -791,59 +845,81 @@ export default function App() {
         </div>
       )}
 
+      {/* Change PIN Modal */}
+      {showChangePin && (
+        <div className="fixed inset-0 flex items-center justify-center bg-[#faf9f6]/95 dark:bg-slate-950/95 backdrop-blur-sm z-[110] p-4">
+          <form onSubmit={handleUpdatePin} className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl space-y-6 w-full max-w-sm border border-slate-100 dark:border-slate-800 animate-in zoom-in duration-300">
+            <div className="text-center space-y-2">
+              <div className="mx-auto w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 rounded-2xl flex items-center justify-center mb-4">
+                <KeyRound className="text-indigo-600 dark:text-indigo-400 w-8 h-8" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Change Access PIN</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest">Update Security Credential</p>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 pl-1">New 4-Digit PIN</label>
+              <input
+                type="password"
+                maxLength={4}
+                value={newPinInput}
+                onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                placeholder="Enter new PIN"
+                autoFocus
+                className="w-full text-center tracking-[1em] text-3xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white"
+              />
+              {pinUpdateError && <p className="text-red-500 text-xs text-center mt-3 font-bold">{pinUpdateError}</p>}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowChangePin(false); setPinUpdateError(''); setNewPinInput(''); }}
+                className="flex-1 px-4 py-4 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors uppercase text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUpdatingPin || newPinInput.length !== 4}
+                className="flex-1 px-4 py-4 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-lg disabled:opacity-50 uppercase text-xs tracking-wider"
+              >
+                {isUpdatingPin ? 'Saving...' : 'Update PIN'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
 
       {/* Mobile Bottom Dock */}
-      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] w-[85%] max-w-[320px]">
-        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 rounded-[2rem] shadow-2xl p-1.5 flex items-center justify-around relative overflow-hidden">
-          <button
-            onClick={() => setView('dashboard')}
-            className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${view === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-600'}`}
-          >
-            <LayoutDashboard size={24} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Dash</span>
-          </button>
-
-          <motion.button
-            onClick={() => setView('submit')}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className={`flex items-center justify-center w-14 h-14 rounded-2xl shadow-xl transition-all ${view === 'submit' ? 'bg-indigo-600 text-white rotate-45' : 'bg-indigo-600/90 text-white shadow-indigo-500/20'}`}
-          >
-            <PlusCircle size={28} className={view === 'submit' ? 'rotate-[-45deg]' : ''} />
-          </motion.button>
-
-          {isAdmin ? (
-            <button
-              onClick={() => setShowAccessManager(true)}
-              className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${showAccessManager ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-600'}`}
-            >
-              <ShieldCheck size={24} />
-              <span className="text-[10px] font-black uppercase tracking-widest">Access</span>
-            </button>
-          ) : (
-            <div className="w-[56px] flex items-center justify-center opacity-10">
-              <Lock size={20} className="text-slate-400" />
-            </div>
-          )}
-        </div>
+      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80]">
+        <motion.button
+          onClick={() => setView('submit')}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className={`flex items-center justify-center w-20 h-20 rounded-[2.5rem] shadow-2xl transition-all bg-indigo-600 text-white border-4 border-white dark:border-slate-950 ${view === 'submit' ? 'rotate-45' : 'shadow-indigo-500/40'}`}
+        >
+          <PlusCircle size={36} className={view === 'submit' ? 'rotate-[-45deg]' : ''} />
+        </motion.button>
       </nav>
     </div>
   );
 }
 
-// --- SUBMITTER INTERFACE ---
 interface SubmitterProps {
   userId: string;
   setUserId: (id: string) => void;
   userName: string;
   setUserName: (name: string) => void;
   onAdd: (type: keyof typeof LEAVE_TYPES, date: string) => void;
+  onChangePin: () => void;
   showSuccess: boolean;
   isSubmitting: boolean;
   storedEmployeeId?: string;
 }
 
-function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, showSuccess, isSubmitting, storedEmployeeId }: SubmitterProps) {
+function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, onChangePin, showSuccess, isSubmitting, storedEmployeeId }: SubmitterProps) {
   // Sync stored ID to parent state if available
   useEffect(() => {
     if (storedEmployeeId) {
@@ -873,6 +949,17 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, s
               className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-3xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-black uppercase disabled:opacity-70 disabled:bg-slate-100 dark:disabled:bg-slate-800"
             />
           </div>
+          {storedEmployeeId && (
+            <div className="flex justify-end mt-2">
+              <button 
+                onClick={onChangePin}
+                className="text-[10px] font-black text-indigo-500 hover:text-indigo-600 uppercase tracking-widest flex items-center gap-1 transition-colors"
+              >
+                <KeyRound size={12} />
+                Change Access PIN
+              </button>
+            </div>
+          )}
         </div>
 
         <div>
@@ -961,10 +1048,11 @@ interface DashboardProps {
   leaves: Leave[];
   onRemove: (id: number) => void;
   onGoToHistory: () => void;
+  onManageAccess: () => void;
   isAdmin: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onGoToHistory, isAdmin }) => {
+const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onGoToHistory, onManageAccess, isAdmin }) => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -981,6 +1069,13 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onGoToHistory, 
             >
               <History size={16} />
               View History
+            </button>
+            <button
+              onClick={onManageAccess}
+              className="px-4 py-2 rounded-full text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-md flex items-center gap-2"
+            >
+              <ShieldCheck size={16} />
+              Manage Access
             </button>
           </div>
         )}
