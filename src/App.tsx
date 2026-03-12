@@ -19,7 +19,9 @@ import {
   X,
   Power,
   Search,
-  Loader2
+  Loader2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface UserAccess {
@@ -215,6 +217,9 @@ export default function App() {
   const [employeeIdInput, setEmployeeIdInput] = useState('');
   const [pinInput, setPinInput] = useState('');
   const [authError, setAuthError] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [showAdminPin, setShowAdminPin] = useState(false);
+  const [showNewPin, setShowNewPin] = useState(false);
 
   const handleAuthentication = (e: React.FormEvent) => {
     e.preventDefault();
@@ -527,13 +532,21 @@ export default function App() {
               
               <div className="relative group">
                 <input
-                  type="password"
+                  type={showPin ? 'text' : 'password'}
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
                   placeholder="Access PIN"
-                  className="w-full text-center tracking-[0.5em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700"
+                  className="w-full text-center tracking-[0.5em] text-2xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-700 pr-14"
                 />
                 <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-700" size={24} />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
                 <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent scale-x-0 group-focus-within:scale-x-100 transition-transform duration-500"></div>
               </div>
 
@@ -737,14 +750,24 @@ export default function App() {
             </div>
 
             <div>
-              <input
-                type="password"
-                value={adminPin}
-                onChange={(e) => setAdminPin(e.target.value)}
-                placeholder="Enter PIN"
-                autoFocus
-                className="w-full text-center tracking-widest text-2xl p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type={showAdminPin ? 'text' : 'password'}
+                  value={adminPin}
+                  onChange={(e) => setAdminPin(e.target.value)}
+                  placeholder="Enter PIN"
+                  autoFocus
+                  className="w-full text-center tracking-widest text-2xl p-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all dark:text-white pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPin(!showAdminPin)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showAdminPin ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
               {pinError && <p className="text-red-500 text-xs text-center mt-2 font-medium">Incorrect PIN</p>}
             </div>
 
@@ -885,15 +908,25 @@ export default function App() {
 
             <div>
               <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 pl-1">New 4-Digit PIN</label>
-              <input
-                type="password"
-                maxLength={4}
-                value={newPinInput}
-                onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
-                placeholder="Enter new PIN"
-                autoFocus
-                className="w-full text-center tracking-[1em] text-3xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white"
-              />
+              <div className="relative">
+                <input
+                  type={showNewPin ? 'text' : 'password'}
+                  maxLength={4}
+                  value={newPinInput}
+                  onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter new PIN"
+                  autoFocus
+                  className="w-full text-center tracking-[1em] text-3xl font-black p-5 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white pr-14"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPin(!showNewPin)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-500 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showNewPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               {pinUpdateError && <p className="text-red-500 text-xs text-center mt-3 font-bold">{pinUpdateError}</p>}
             </div>
 
