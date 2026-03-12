@@ -281,7 +281,19 @@ export default function App() {
     fetch(GOOGLE_SCRIPT_URL)
       .then(res => res.json())
       .then(data => {
-        if (Array.isArray(data)) setLeaves(data.map(normalizeLeaf));
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          // New backend structure: { leaves: [], users: [] }
+          if (Array.isArray(data.leaves)) {
+            setLeaves(data.leaves.map(normalizeLeaf));
+          }
+          if (Array.isArray(data.users)) {
+            setAllowedUsers(data.users);
+            localStorage.setItem('mdo_allowed_users', JSON.stringify(data.users));
+          }
+        } else if (Array.isArray(data)) {
+          // Legacy backend structure: [...]
+          setLeaves(data.map(normalizeLeaf));
+        }
       })
       .catch(err => {
         console.error('Failed to load leaves:', err);

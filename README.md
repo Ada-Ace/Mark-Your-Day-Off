@@ -104,6 +104,157 @@ For the "Native App" experience on **iOS** or **Android**:
 
 ---
 
+## ☁️ Google Apps Script Backend Setup (Required for Syncing)
+
+To ensure that Employee IDs added via the mobile app are synced to laptops and other devices, you **must update your backend** to store both Leaves and Users. 
+
+### Step 1: Create the Sheets
+1. Go to your Google Sheet.
+2. Ensure you have two tabs at the bottom:
+   - **`Leaves`** 
+   - **`Users`**
+3. Open the **`Users`** sheet. Add your default access IDs in the first few rows:
+   - Row 1: `SS-023` in column A, `1431` in column B
+   - Row 2: `ST-001` in column A, `1234` in column B
+
+### Step 2: Update the Script
+1. Click **Extensions → Apps Script**.
+2. Replace all the code in `Code.gs` with the snippet below:
+
+```javascript
+const LEAVES_SHEET = 'Leaves';
+const USERS_SHEET = 'Users';
+
+function doGet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // 1. Fetch Leaves
+  let leaves = [];
+  const leafSheet = ss.getSheetByName(LEAVES_SHEET);
+  if (leafSheet) {
+    const data = leafSheet.getDataRange().getValues();
+    if (data.length > 1) {
+      leaves = data.slice(1).map(row => {
+        let dateVal = row[6];
+        if (dateVal instanceof Date) {
+          const y = dateVal.getFullYear();
+          const m = String(dateVal.getMonth() + 1).padStart(2, '0');
+          const d = String(dateVal.getDate()).padStart(2, '0');
+          dateVal = `${y}-${m}-${d}`;
+        }
+        return {
+          id: Number(row[0]),
+          userId: String(row[2]).trim(),
+          userName: String(row[3]).trim(),
+          office: String(row[4]).trim(),
+          type: String(row[5]).trim(),
+          date: String(dateVal).trim()
+        };
+      });
+    }
+  }
+
+  // 2. Fetch Allowed Users
+  let users = [];
+  const userSheet = ss.getSheetByName(USERS_SHEET);
+  if (userSheet) {
+    const data = userSheet.getDataRange().getValues();
+    // Assuming no header row for Users, or if there is, adjust slice:
+    users = data.map(row => {
+      if (!row[0]) return null;
+      return { id: String(row[0]).trim(), pin: String(row[1]).trim() };
+    }).filter(row => row !== null);
+  }
+
+  // Return both so devices sync perfectly upon loading the app
+  return ContentService.createTextOutput(JSON.stringify({ leaves, users }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const leafSheet = ss.getSheetByName(LEAVES_SHEET);
+    const userSheet = ss.getSheetByName(USERS_SHEET);
+    
+    const data = JSON.parse(e.postData.contents);
+
+    // Handle Delete Leave
+    if (data.action === 'delete' && leafSheet) {
+      const rows = leafSheet.getDataRange().getValues();
+      for (let i = 1; i < rows.length; i++) {
+        if (Number(rows[i][0]) === Number(data.id)) {
+          leafSheet.deleteRow(i + 1);
+          break;
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: 'deleted' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Handle Add User
+    if (data.action === 'add_allowed_id' && userSheet) {
+      userSheet.appendRow([data.id, data.pin]);
+      return ContentService.createTextOutput(JSON.stringify({ status: 'user_added' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Handle Remove User
+    if (data.action === 'remove_allowed_id' && userSheet) {
+      const rows = userSheet.getDataRange().getValues();
+      for (let i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]).trim() === String(data.id).trim()) {
+          userSheet.deleteRow(i + 1);
+          break;
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: 'user_removed' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    // Handle Update PIN
+    if (data.action === 'update_user_pin' && userSheet) {
+      const rows = userSheet.getDataRange().getValues();
+      for (let i = 0; i < rows.length; i++) {
+        if (String(rows[i][0]).trim() === String(data.id).trim()) {
+          userSheet.getRange(i + 1, 2).setValue(data.pin); // column B
+          break;
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: 'pin_updated' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Default: Add Leave Record
+    if (leafSheet) {
+      leafSheet.appendRow([
+        data.id,
+        new Date(),
+        data.userId,
+        data.userName,
+        data.office,
+        data.type,
+        data.date
+      ]);
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
+        .setMimeType(ContentService.MimeType.JSON);
+        
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+```
+
+### Step 3: Deploy
+1. Click **Deploy → New deployment**.
+2. Run as: **Me**, Access: **Anyone**.
+3. **Important:** Whenever you change the code, you must deploy as a **New Version** (Deploy → Manage deployments → Edit Pencil → Select "New version" → Deploy) for changes to take effect!
+
+---
+
 ## 📂 Project Structure
 
 ```
