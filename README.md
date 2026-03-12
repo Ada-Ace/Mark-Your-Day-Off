@@ -9,7 +9,7 @@ MDO is a modern, responsive web application for teams to submit and track short-
 ### For All Users
 - **Personalized Access** — Secure login using Employee ID and a personal 4-digit PIN.
 - **Calendar Day System** — Track availability 7 days a week (including weekends).
-- **Public Holiday Awareness** — Integrated **2026 Singapore Public Holidays** with automatic dashboard indicators.
+- **Country-Specific Public Holidays** — Dynamic holiday indicators mapped precisely to the office's configured country and timezone.
 - **Quick Submission** — Mark yourself as away for *Today* or *Tomorrow* with a single tap.
 - **Live Summary** — View team availability at a glance across multiple office locations.
 - **PIN Management** — Self-service PIN updates for logged-in users.
@@ -59,7 +59,6 @@ MDO is a modern, responsive web application for teams to submit and track short-
    VITE_APP_TITLE="Mark Your Day-Off"
    VITE_GOOGLE_APPS_SCRIPT_URL="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
    VITE_ADMIN_PIN="123456"
-   VITE_DEFAULT_OFFICE="HQ"
    ```
 
 4. **Run Locally:**
@@ -83,7 +82,8 @@ The dashboard is designed for high-velocity updates and immediate visibility:
 ## 🔒 Security & Admin
 
 ### Access System
-- **Default Employee ID**: `SS023`
+- **Login Format**: Users must log in using a strict `AA-111` formatted Employee ID (2 letters, 3 numbers). This is enforced in real-time as users type.
+- **Default Employee ID**: `SS-023`
 - **Default Access PIN**: `1431`
 - Users can update their personal PIN from the leave submission interface.
 
