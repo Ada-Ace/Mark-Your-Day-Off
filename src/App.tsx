@@ -1099,7 +1099,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
           <div className="bg-indigo-500 dark:bg-indigo-600 text-white p-8 rounded-3xl shadow-2xl text-center space-y-4 animate-in zoom-in duration-300">
             <CheckCircle2 size={64} className="mx-auto" />
             <h3 className="text-2xl font-bold">Day-off Marked!</h3>
-            <p>Take Care.</p>
+            <p>Stay well — may the Force be with you. ✨</p>
           </div>
         </div>
       )}
