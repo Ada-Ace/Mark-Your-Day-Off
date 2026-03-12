@@ -56,7 +56,10 @@ MDO is a modern, responsive web application for teams to submit and track short-
 
 3. **Configure Environment Variables** — Create a `.env` file in the root:
    ```env
+   VITE_APP_TITLE="Mark Your Day-Off"
    VITE_GOOGLE_APPS_SCRIPT_URL="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
+   VITE_ADMIN_PIN="123456"
+   VITE_DEFAULT_OFFICE="HQ"
    ```
 
 4. **Run Locally:**
