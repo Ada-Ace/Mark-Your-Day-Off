@@ -7,16 +7,19 @@ MDO is a modern, responsive web application for teams to submit and track short-
 ## 🌟 Key Features
 
 ### For All Users
-- **Personalized Access** — Secure login using Employee ID and a personal 4-digit PIN.
+- **Personalized Access** — Secure login using Employee ID (`AA-111` format) and a personal 4-digit PIN.
+- **Show / Hide PIN** — Eye icon toggle on all PIN fields for safe, optional visibility.
 - **Calendar Day System** — Track availability 7 days a week (including weekends).
 - **Country-Specific Public Holidays** — Dynamic holiday indicators mapped precisely to the office's configured country and timezone.
-- **Quick Submission** — Mark yourself as away for *Today* or *Tomorrow* with a single tap.
+- **Quick Submission** — Bold, animated **"Mark Off"** button on mobile header for fast, one-tap leave submission.
 - **Live Summary** — View team availability at a glance across multiple office locations.
 - **PIN Management** — Self-service PIN updates for logged-in users.
 - **Mobile First** — Optimized for high-performance mobile scrolling with a clean, app-like interface.
 
 ### For Admins Only *(PIN-protected)*
-- **Manage Access** — Admins can manage staff IDs and PINs directly from the **Manage Access** interface.
+- **Auto Dashboard Redirect** — Admin is redirected straight to the **Dashboard** upon successful PIN entry.
+- **Manage Access** — ID search field, sorted ascending, with real-time loading spinners during add/remove operations.
+- **Auto-Cleanup** — Leave records older than 7 days are automatically removed from Google Sheets on every new submission.
 - **Remove Records** — Admins can clear a user's status from the dashboard (via hover on desktop or long-press/view on mobile).
 - **Security Control** — Lock/Unlock admin mode to prevent unauthorized record tampering.
 
