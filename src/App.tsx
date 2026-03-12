@@ -17,7 +17,9 @@ import {
   Fingerprint,
   UserCheck,
   X,
-  Power
+  Power,
+  Search,
+  Loader2
 } from 'lucide-react';
 
 interface UserAccess {
@@ -190,6 +192,7 @@ export default function App() {
   });
   const [newIdInput, setNewIdInput] = useState('');
   const [isUpdatingAccess, setIsUpdatingAccess] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Access State
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -794,18 +797,31 @@ export default function App() {
                       className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-bold"
                     />
                     <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-600" size={20} />
-                    <button
-                      type="submit"
-                      disabled={isUpdatingAccess || !newIdInput}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                    >
-                      <PlusCircle size={20} />
-                    </button>
+                      <button
+                        type="submit"
+                        disabled={isUpdatingAccess || !newIdInput}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center justify-center w-9 h-9"
+                      >
+                        {isUpdatingAccess ? <Loader2 size={20} className="animate-spin" /> : <PlusCircle size={20} />}
+                      </button>
                   </div>
                   <p className="text-[9px] text-slate-400 px-1 font-medium tracking-tight">Format: 2 letters + 3 numbers. PIN will be generated automatically.</p>
                 </form>
                 <div className="space-y-2">
-                  {allowedUsers.map((user) => (
+                  <div className="relative group mb-4">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search ID..."
+                      className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white font-medium text-sm"
+                    />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  </div>
+                  
+                  {allowedUsers
+                    .filter(u => u.id.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .map((user) => (
                     <div key={user.id} className="group relative flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-indigo-200 dark:hover:border-indigo-900/50">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
@@ -819,10 +835,10 @@ export default function App() {
                       <button
                         onClick={() => removeEmployeeId(user.id)}
                         disabled={isUpdatingAccess}
-                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all"
+                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-all disabled:opacity-50"
                         title="Revoke ID Access"
                       >
-                        <X size={18} />
+                        {isUpdatingAccess ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />}
                       </button>
                     </div>
                   ))}
@@ -830,6 +846,11 @@ export default function App() {
                     <div className="text-center py-8 opacity-20">
                       <Fingerprint size={48} className="mx-auto mb-2" />
                       <p className="text-sm font-bold uppercase tracking-tighter">No Access Records</p>
+                    </div>
+                  )}
+                  {allowedUsers.length > 0 && allowedUsers.filter(u => u.id.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                    <div className="text-center py-8 opacity-50">
+                      <p className="text-sm font-bold uppercase tracking-tighter">No matches found</p>
                     </div>
                   )}
                 </div>
