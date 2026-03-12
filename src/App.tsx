@@ -557,7 +557,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-dvh ${isDarkMode ? 'dark' : ''} bg-[#f4f2ee] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-32 transition-colors duration-300`}>
+    <div className={`min-h-dvh ${isDarkMode ? 'dark' : ''} bg-[#f4f2ee] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300`}>
       {/* Navigation */}
       <nav className="bg-[#faf9f6] dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10 px-4 py-3 flex items-center justify-between shadow-sm transition-colors duration-300">
         <div className="flex items-center gap-2">
@@ -640,6 +640,13 @@ export default function App() {
             title="Dashboard"
           >
             <LayoutDashboard size={20} />
+          </button>
+          <button
+            onClick={() => setView('submit')}
+            className={`md:hidden p-2 rounded-full transition-all ${view === 'submit' ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/40' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+            title="Mark Your Day-off"
+          >
+            <PlusCircle size={20} />
           </button>
           <button
             onClick={() => {
@@ -864,18 +871,6 @@ export default function App() {
         </div>
       )}
 
-
-      {/* Mobile Bottom Dock */}
-      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80]">
-        <motion.button
-          onClick={() => setView('submit')}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className={`flex items-center justify-center w-20 h-20 rounded-[2.5rem] shadow-2xl transition-all bg-indigo-600 text-white border-4 border-white dark:border-slate-950 ${view === 'submit' ? 'rotate-45' : 'shadow-indigo-500/40'}`}
-        >
-          <PlusCircle size={36} className={view === 'submit' ? 'rotate-[-45deg]' : ''} />
-        </motion.button>
-      </nav>
     </div>
   );
 }
@@ -1131,9 +1126,6 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
           ))}
         </div>
       </div>
-      
-      {/* Mobile dock safe area */}
-      <div className="h-28 md:hidden" />
     </div>
   );
 }
