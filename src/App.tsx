@@ -635,9 +635,10 @@ export default function App() {
             )}
             <button
               onClick={() => setView('dashboard')}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${view === 'dashboard' ? 'bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              className={`p-2 rounded-full transition-all ${view === 'dashboard' ? 'text-indigo-600 bg-slate-100 dark:bg-slate-800' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              title="Dashboard"
             >
-              Overview
+              <LayoutDashboard size={20} />
             </button>
             <motion.button
               onClick={() => setView('submit')}
