@@ -695,15 +695,14 @@ export default function App() {
             transition={{ repeat: Infinity, duration: 2.4, ease: "easeInOut" }}
             whileHover={{ scale: 1.06 }}
             whileTap={{ scale: 0.92 }}
-            className={`md:hidden flex items-center gap-1.5 px-3 py-2 rounded-full font-black text-xs uppercase tracking-wider transition-all shadow-md ${
+            className={`md:hidden flex items-center justify-center w-10 h-10 rounded-full transition-all shadow-md ${
               view === 'submit'
                 ? 'bg-indigo-700 text-white shadow-indigo-300 dark:shadow-indigo-900'
                 : 'bg-indigo-600 text-white shadow-indigo-200 dark:shadow-indigo-900/50'
             }`}
             title="Mark Your Day-off"
           >
-            <PlusCircle size={18} />
-            <span>Mark Off</span>
+            <PlusCircle size={22} />
           </motion.button>
           <button
             onClick={() => {
