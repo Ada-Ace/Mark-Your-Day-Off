@@ -529,7 +529,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-dvh ${isDarkMode ? 'dark' : ''} bg-[#f4f2ee] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-20 transition-colors duration-300`}>
+    <div className={`min-h-dvh ${isDarkMode ? 'dark' : ''} bg-[#f4f2ee] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-32 transition-colors duration-300`}>
       {/* Navigation */}
       <nav className="bg-[#faf9f6] dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10 px-4 py-3 flex items-center justify-between shadow-sm transition-colors duration-300">
         <div className="flex items-center gap-2">
@@ -746,7 +746,6 @@ export default function App() {
                   </div>
                   <p className="text-[9px] text-slate-400 px-1 font-medium tracking-tight">Format: 2 letters + 3 numbers. PIN will be generated automatically.</p>
                 </form>
-
                 <div className="space-y-2">
                   {allowedUsers.map((user) => (
                     <div key={user.id} className="group relative flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-indigo-200 dark:hover:border-indigo-900/50">
@@ -794,8 +793,8 @@ export default function App() {
 
 
       {/* Mobile Bottom Dock */}
-      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] w-[90%] max-w-sm">
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-2xl p-2 flex items-center justify-around relative overflow-hidden">
+      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] w-[85%] max-w-[320px]">
+        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 rounded-[2rem] shadow-2xl p-1.5 flex items-center justify-around relative overflow-hidden">
           <button
             onClick={() => setView('dashboard')}
             className={`flex flex-col items-center gap-1 p-3 rounded-2xl transition-all ${view === 'dashboard' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-600'}`}
@@ -806,15 +805,11 @@ export default function App() {
 
           <motion.button
             onClick={() => setView('submit')}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            animate={view === 'submit' ? {} : {
-              scale: [1, 1.08, 1],
-            }}
-            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-            className={`flex items-center justify-center w-16 h-16 rounded-[2rem] shadow-lg transition-all ${view === 'submit' ? 'bg-indigo-600 text-white rotate-45' : 'bg-indigo-600 text-white shadow-indigo-500/30'}`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className={`flex items-center justify-center w-14 h-14 rounded-2xl shadow-xl transition-all ${view === 'submit' ? 'bg-indigo-600 text-white rotate-45' : 'bg-indigo-600/90 text-white shadow-indigo-500/20'}`}
           >
-            <PlusCircle size={32} className={view === 'submit' ? 'rotate-[-45deg]' : ''} />
+            <PlusCircle size={28} className={view === 'submit' ? 'rotate-[-45deg]' : ''} />
           </motion.button>
 
           {isAdmin ? (
@@ -1037,6 +1032,9 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onGoToHistory, 
           ))}
         </div>
       </div>
+      
+      {/* Mobile dock safe area */}
+      <div className="h-28 md:hidden" />
     </div>
   );
 }
@@ -1308,6 +1306,9 @@ const HistoryView: React.FC<HistoryViewProps> = ({ leaves, onRemove, onBack, isA
           onCancel={() => setConfirm(null)}
         />
       )}
+      
+      {/* Mobile dock safe area */}
+      <div className="h-28 md:hidden" />
     </div>
   );
 }
