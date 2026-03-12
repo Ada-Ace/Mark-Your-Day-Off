@@ -14,7 +14,6 @@ import {
   Search,
   Filter,
   Download,
-  History,
   Moon,
   Sun,
   Lock,
@@ -67,8 +66,18 @@ const getEffectiveToday = (date: Date) => {
   return d;
 };
 
+const getPrevWorkDay = (date: Date) => {
+  const prev = new Date(date);
+  prev.setDate(prev.getDate() - 1);
+  while (prev.getDay() === 0 || prev.getDay() === 6) {
+    prev.setDate(prev.getDate() - 1);
+  }
+  return prev;
+};
+
 const TODAY_DATE = getEffectiveToday(new Date());
-const NEXT_DAY_DATE = getNextWorkDay(TODAY_DATE);
+const TOMORROW_DATE = getNextWorkDay(TODAY_DATE);
+const YESTERDAY_DATE = getPrevWorkDay(TODAY_DATE);
 
 // Use local date (not UTC) to avoid timezone off-by-one errors (e.g. GMT+8)
 const toLocalDateId = (date: Date) => {
@@ -79,13 +88,15 @@ const toLocalDateId = (date: Date) => {
 };
 
 const TODAY_ID = toLocalDateId(TODAY_DATE);
-const NEXT_DAY_ID = toLocalDateId(NEXT_DAY_DATE);
+const TOMORROW_ID = toLocalDateId(TOMORROW_DATE);
+const YESTERDAY_ID = toLocalDateId(YESTERDAY_DATE);
 
 const TODAY_LABEL = formatDate(TODAY_DATE);
-const NEXT_DAY_LABEL = formatDate(NEXT_DAY_DATE);
+const TOMORROW_LABEL = formatDate(TOMORROW_DATE);
+const YESTERDAY_LABEL = formatDate(YESTERDAY_DATE);
 
 const TODAY_SHORT_LABEL = formatShortDate(TODAY_DATE);
-const NEXT_DAY_SHORT_LABEL = formatShortDate(NEXT_DAY_DATE);
+const TOMORROW_SHORT_LABEL = formatShortDate(TOMORROW_DATE);
 
 const toTitleCase = (str: string) => {
   return str
@@ -696,7 +707,6 @@ export default function App() {
           <Dashboard 
             leaves={leaves} 
             onRemove={removeLeave} 
-            onGoToHistory={() => setView('history')} 
             onManageAccess={() => setShowAccessManager(true)}
             isAdmin={isAdmin} 
           />
@@ -993,11 +1003,11 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
                 </button>
                 <button
                   disabled={isSubmitting}
-                  onClick={() => onAdd('MEDICAL', NEXT_DAY_ID)}
+                  onClick={() => onAdd('MEDICAL', TOMORROW_ID)}
                   className="flex-1 bg-red-100 text-red-700 border-2 border-red-200 py-3 rounded-xl font-bold hover:bg-red-200 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
                 >
-                  <span>Next Day</span>
-                  <span className="text-xs font-medium opacity-90">{NEXT_DAY_SHORT_LABEL}</span>
+                  <span>Tomorrow</span>
+                  <span className="text-xs font-medium opacity-90">{TOMORROW_SHORT_LABEL}</span>
                 </button>
               </div>
             </div>
@@ -1018,11 +1028,11 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
                 </button>
                 <button
                   disabled={isSubmitting}
-                  onClick={() => onAdd('URGENT', NEXT_DAY_ID)}
+                  onClick={() => onAdd('URGENT', TOMORROW_ID)}
                   className="flex-1 bg-amber-100 text-amber-700 border-2 border-amber-200 py-3 rounded-xl font-bold hover:bg-amber-200 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
                 >
-                  <span>Next Day</span>
-                  <span className="text-xs font-medium opacity-90">{NEXT_DAY_SHORT_LABEL}</span>
+                  <span>Tomorrow</span>
+                  <span className="text-xs font-medium opacity-90">{TOMORROW_SHORT_LABEL}</span>
                 </button>
               </div>
             </div>
@@ -1047,12 +1057,11 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
 interface DashboardProps {
   leaves: Leave[];
   onRemove: (id: number) => void;
-  onGoToHistory: () => void;
   onManageAccess: () => void;
   isAdmin: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onGoToHistory, onManageAccess, isAdmin }) => {
+const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess, isAdmin }) => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1063,13 +1072,6 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onGoToHistory, 
 
         {isAdmin && (
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={onGoToHistory}
-              className="px-4 py-2 rounded-full text-sm font-bold bg-[#faf9f6] dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-500/50 transition-all shadow-sm flex items-center gap-2"
-            >
-              <History size={16} />
-              View History
-            </button>
             <button
               onClick={onManageAccess}
               className="px-4 py-2 rounded-full text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-md flex items-center gap-2"
@@ -1106,22 +1108,43 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onGoToHistory, 
           ))}
         </div>
 
-        {/* Next Day Column */}
-        <div className="space-y-4 bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-[2.5rem] border border-slate-200/50 dark:border-slate-800/50 transition-colors duration-300">
+        {/* Tomorrow Column - Darker Grey */}
+        <div className="space-y-4 bg-slate-200 dark:bg-slate-800 p-4 rounded-[2.5rem] border border-slate-300 dark:border-slate-700 transition-colors duration-300">
           <div className="flex items-center justify-between px-2">
-            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-300 flex items-center gap-2 uppercase">
-              <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
-              Next Day
+            <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 uppercase">
+              <span className="w-2 h-2 rounded-full bg-slate-700 dark:bg-slate-400"></span>
+              Tomorrow
             </h3>
-            <span className="text-lg font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{NEXT_DAY_LABEL}</span>
+            <span className="text-lg font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{TOMORROW_LABEL}</span>
           </div>
           {OFFICES.map(office => (
             <OfficeColumn
-              key={`${office.id}-next`}
+              key={`${office.id}-tomorrow`}
               office={office}
-              leaves={leaves.filter(l => l.office === office.id && l.date === NEXT_DAY_ID)}
+              leaves={leaves.filter(l => l.office === office.id && l.date === TOMORROW_ID)}
               onRemove={onRemove}
-              headerColor="bg-slate-500"
+              headerColor="bg-slate-700"
+              isAdmin={isAdmin}
+            />
+          ))}
+        </div>
+
+        {/* Yesterday Column - Light Grey */}
+        <div className="space-y-4 bg-slate-50/80 dark:bg-slate-900/40 p-4 rounded-[2.5rem] border border-slate-100 dark:border-slate-800/50 transition-colors duration-300 md:col-span-1">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-lg font-bold text-slate-400 dark:text-slate-600 flex items-center gap-2 uppercase">
+              <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700"></span>
+              Yesterday
+            </h3>
+            <span className="text-lg font-bold text-slate-300 dark:text-slate-700 uppercase tracking-wider">{YESTERDAY_LABEL}</span>
+          </div>
+          {OFFICES.map(office => (
+            <OfficeColumn
+              key={`${office.id}-yesterday`}
+              office={office}
+              leaves={leaves.filter(l => l.office === office.id && l.date === YESTERDAY_ID)}
+              onRemove={onRemove}
+              headerColor="bg-slate-300"
               isAdmin={isAdmin}
             />
           ))}
