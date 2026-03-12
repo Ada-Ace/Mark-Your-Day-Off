@@ -70,11 +70,8 @@ const SG_HOLIDAYS: Record<string, string> = {
   '2026-05-01': 'Labour Day',
   '2026-05-27': 'Hari Raya Haji',
   '2026-05-31': 'Vesak Day',
-  '2026-06-01': 'Vesak Day (In-lieu)',
   '2026-08-09': 'National Day',
-  '2026-08-10': 'National Day (In-lieu)',
   '2026-11-08': 'Deepavali',
-  '2026-11-09': 'Deepavali (In-lieu)',
   '2026-12-25': 'Christmas Day'
 };
 
