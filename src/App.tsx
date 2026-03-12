@@ -53,21 +53,23 @@ const getYesterday = (date: Date) => {
   return prev;
 };
 
-const SG_HOLIDAYS: Record<string, string> = {
-  '2026-01-01': "New Year's Day",
-  '2026-02-17': 'Chinese New Year',
-  '2026-02-18': 'Chinese New Year',
-  '2026-03-21': 'Hari Raya Puasa',
-  '2026-04-03': 'Good Friday',
-  '2026-05-01': 'Labour Day',
-  '2026-05-27': 'Hari Raya Haji',
-  '2026-05-31': 'Vesak Day',
-  '2026-08-09': 'National Day',
-  '2026-11-08': 'Deepavali',
-  '2026-12-25': 'Christmas Day'
+const HOLIDAYS_BY_COUNTRY: Record<string, Record<string, string>> = {
+  'Singapore': {
+    '2026-01-01': "New Year's Day",
+    '2026-02-17': 'Chinese New Year',
+    '2026-02-18': 'Chinese New Year',
+    '2026-03-21': 'Hari Raya Puasa',
+    '2026-04-03': 'Good Friday',
+    '2026-05-01': 'Labour Day',
+    '2026-05-27': 'Hari Raya Haji',
+    '2026-05-31': 'Vesak Day',
+    '2026-08-09': 'National Day',
+    '2026-11-08': 'Deepavali',
+    '2026-12-25': 'Christmas Day'
+  }
 };
 
-const getHolidayName = (dateId: string) => SG_HOLIDAYS[dateId] || null;
+const getHolidayName = (country: string, dateId: string) => HOLIDAYS_BY_COUNTRY[country]?.[dateId] || null;
 
 const TODAY_DATE = new Date();
 const TOMORROW_DATE = getTomorrow(TODAY_DATE);
@@ -1074,11 +1076,6 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
             </h3>
             <div className="flex flex-col items-end">
               <span className="text-lg font-bold text-indigo-400 dark:text-indigo-500/80 uppercase tracking-wider">{TODAY_LABEL}</span>
-              {getHolidayName(TODAY_ID) && (
-                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tighter bg-indigo-100 dark:bg-indigo-900/50 px-2 py-0.5 rounded mt-1">
-                  🇸🇬 {getHolidayName(TODAY_ID)}
-                </span>
-              )}
             </div>
           </div>
           {OFFICES.map(office => (
@@ -1089,6 +1086,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
               onRemove={onRemove}
               headerColor="bg-indigo-600"
               isAdmin={isAdmin}
+              dateId={TODAY_ID}
             />
           ))}
         </div>
@@ -1102,11 +1100,6 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
             </h3>
             <div className="flex flex-col items-end">
               <span className="text-lg font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">{TOMORROW_LABEL}</span>
-              {getHolidayName(TOMORROW_ID) && (
-                <span className="text-[10px] font-black text-slate-100 bg-slate-800 dark:bg-slate-700 px-2 py-0.5 rounded mt-1 tracking-tighter">
-                  🇸🇬 {getHolidayName(TOMORROW_ID)}
-                </span>
-              )}
             </div>
           </div>
           {OFFICES.map(office => (
@@ -1117,6 +1110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
               onRemove={onRemove}
               headerColor="bg-slate-700"
               isAdmin={isAdmin}
+              dateId={TOMORROW_ID}
             />
           ))}
         </div>
@@ -1130,11 +1124,6 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
             </h3>
             <div className="flex flex-col items-end">
               <span className="text-lg font-bold text-slate-300 dark:text-slate-700 uppercase tracking-wider">{YESTERDAY_LABEL}</span>
-              {getHolidayName(YESTERDAY_ID) && (
-                <span className="text-[10px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800/50 px-2 py-0.5 rounded mt-1 tracking-tighter">
-                  🇸🇬 {getHolidayName(YESTERDAY_ID)}
-                </span>
-              )}
             </div>
           </div>
           {OFFICES.map(office => (
@@ -1145,6 +1134,7 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
               onRemove={onRemove}
               headerColor="bg-slate-300"
               isAdmin={isAdmin}
+              dateId={YESTERDAY_ID}
             />
           ))}
         </div>
@@ -1198,9 +1188,10 @@ interface OfficeColumnProps {
   onRemove: (id: number) => void;
   headerColor?: string;
   isAdmin: boolean;
+  dateId: string;
 }
 
-const OfficeColumn: React.FC<OfficeColumnProps> = ({ office, leaves, onRemove, headerColor, isAdmin }) => {
+const OfficeColumn: React.FC<OfficeColumnProps> = ({ office, leaves, onRemove, headerColor, isAdmin, dateId }) => {
   const [confirm, setConfirm] = useState<{ type: 'delete'; leaveId?: number } | null>(null);
 
   const handleConfirm = () => {
@@ -1211,6 +1202,8 @@ const OfficeColumn: React.FC<OfficeColumnProps> = ({ office, leaves, onRemove, h
     setConfirm(null);
   };
 
+  const holidayName = office.country ? getHolidayName(office.country, dateId) : null;
+
   return (
     <div className="bg-[#faf9f6] dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col min-h-[400px] transition-colors duration-300">
       <div className={`${headerColor || office.color} p-5 rounded-t-3xl text-white`}>
@@ -1219,8 +1212,13 @@ const OfficeColumn: React.FC<OfficeColumnProps> = ({ office, leaves, onRemove, h
             <h3 className="text-xl font-bold">{office.name}</h3>
             {office.country && <p className="text-sm opacity-80 uppercase tracking-widest font-bold">{office.country}</p>}
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className="text-base bg-white/20 px-2 py-1 rounded-full font-mono">{office.tz}</span>
+          <div className="flex flex-col items-end gap-1.5">
+            <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full font-mono font-bold tracking-wider">{office.tz}</span>
+            {holidayName && (
+              <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded font-black uppercase tracking-tighter">
+                🗓️ {holidayName}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex justify-between items-center mt-2">
