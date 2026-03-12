@@ -325,6 +325,15 @@ export default function App() {
     const formattedId = storedEmployeeId || formatUserId(userId);
     if (!formattedId || !userName.trim() || isSubmitting) return;
 
+    // Prevent submitting more than 1 leave per day per user
+    const alreadySubmitted = leaves.some(
+      l => l.userId === formattedId && l.date === date
+    );
+    if (alreadySubmitted) {
+      alert(`You have already submitted a leave for ${date === TODAY_ID ? 'Today' : 'Tomorrow'}. Only 1 leave per day is allowed.`);
+      return;
+    }
+
     const newLeave = {
       id: Date.now(),
       userId: formattedId,
@@ -749,6 +758,7 @@ export default function App() {
             showSuccess={showSuccess}
             isSubmitting={isSubmitting}
             storedEmployeeId={storedEmployeeId}
+            leaves={leaves}
           />
         )}
       </main>
@@ -980,15 +990,21 @@ interface SubmitterProps {
   showSuccess: boolean;
   isSubmitting: boolean;
   storedEmployeeId?: string;
+  leaves: Leave[];
 }
 
-function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, onChangePin, showSuccess, isSubmitting, storedEmployeeId }: SubmitterProps) {
+function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, onChangePin, showSuccess, isSubmitting, storedEmployeeId, leaves }: SubmitterProps) {
   // Sync stored ID to parent state if available
   useEffect(() => {
     if (storedEmployeeId) {
       setUserId(storedEmployeeId);
     }
   }, [storedEmployeeId, setUserId]);
+
+  // Determine which dates are already taken for the current user
+  const currentUserId = storedEmployeeId || userId;
+  const todayTaken = leaves.some(l => l.userId === currentUserId && l.date === TODAY_ID);
+  const tomorrowTaken = leaves.some(l => l.userId === currentUserId && l.date === TOMORROW_ID);
 
   return (
     <div className="max-w-md mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -1048,20 +1064,46 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
               </div>
               <div className="flex gap-2">
                 <button
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || todayTaken}
                   onClick={() => onAdd('MEDICAL', TODAY_ID)}
-                  className="flex-1 bg-red-500 text-white py-3 rounded-xl font-bold shadow-md shadow-red-200 hover:bg-red-600 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
+                  className={`flex-1 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
+                    todayTaken
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 shadow-none cursor-not-allowed'
+                      : 'bg-red-500 text-white shadow-red-200 hover:bg-red-600 disabled:opacity-50'
+                  }`}
                 >
-                  <span>Today</span>
-                  <span className="text-xs font-medium opacity-90">{TODAY_SHORT_LABEL}</span>
+                  {todayTaken ? (
+                    <>
+                      <CheckCircle2 size={16} />
+                      <span className="text-xs font-bold">Already Submitted</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Today</span>
+                      <span className="text-xs font-medium opacity-90">{TODAY_SHORT_LABEL}</span>
+                    </>
+                  )}
                 </button>
                 <button
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || tomorrowTaken}
                   onClick={() => onAdd('MEDICAL', TOMORROW_ID)}
-                  className="flex-1 bg-red-100 text-red-700 border-2 border-red-200 py-3 rounded-xl font-bold hover:bg-red-200 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
+                  className={`flex-1 py-3 rounded-xl font-bold active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
+                    tomorrowTaken
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed border-2 border-slate-300 dark:border-slate-600'
+                      : 'bg-red-100 text-red-700 border-2 border-red-200 hover:bg-red-200 disabled:opacity-50'
+                  }`}
                 >
-                  <span>Tomorrow</span>
-                  <span className="text-xs font-medium opacity-90">{TOMORROW_SHORT_LABEL}</span>
+                  {tomorrowTaken ? (
+                    <>
+                      <CheckCircle2 size={16} />
+                      <span className="text-xs font-bold">Already Submitted</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Tomorrow</span>
+                      <span className="text-xs font-medium opacity-90">{TOMORROW_SHORT_LABEL}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1073,20 +1115,46 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
               </div>
               <div className="flex gap-2">
                 <button
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || todayTaken}
                   onClick={() => onAdd('URGENT', TODAY_ID)}
-                  className="flex-1 bg-amber-500 text-white py-3 rounded-xl font-bold shadow-md shadow-amber-200 hover:bg-amber-600 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
+                  className={`flex-1 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
+                    todayTaken
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 shadow-none cursor-not-allowed'
+                      : 'bg-amber-500 text-white shadow-amber-200 hover:bg-amber-600 disabled:opacity-50'
+                  }`}
                 >
-                  <span>Today</span>
-                  <span className="text-xs font-medium opacity-90">{TODAY_SHORT_LABEL}</span>
+                  {todayTaken ? (
+                    <>
+                      <CheckCircle2 size={16} />
+                      <span className="text-xs font-bold">Already Submitted</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Today</span>
+                      <span className="text-xs font-medium opacity-90">{TODAY_SHORT_LABEL}</span>
+                    </>
+                  )}
                 </button>
                 <button
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || tomorrowTaken}
                   onClick={() => onAdd('URGENT', TOMORROW_ID)}
-                  className="flex-1 bg-amber-100 text-amber-700 border-2 border-amber-200 py-3 rounded-xl font-bold hover:bg-amber-200 active:scale-95 transition-all disabled:opacity-50 flex flex-col items-center justify-center gap-0.5"
+                  className={`flex-1 py-3 rounded-xl font-bold active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
+                    tomorrowTaken
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed border-2 border-slate-300 dark:border-slate-600'
+                      : 'bg-amber-100 text-amber-700 border-2 border-amber-200 hover:bg-amber-200 disabled:opacity-50'
+                  }`}
                 >
-                  <span>Tomorrow</span>
-                  <span className="text-xs font-medium opacity-90">{TOMORROW_SHORT_LABEL}</span>
+                  {tomorrowTaken ? (
+                    <>
+                      <CheckCircle2 size={16} />
+                      <span className="text-xs font-bold">Already Submitted</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Tomorrow</span>
+                      <span className="text-xs font-medium opacity-90">{TOMORROW_SHORT_LABEL}</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

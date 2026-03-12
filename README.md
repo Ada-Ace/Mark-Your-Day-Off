@@ -15,6 +15,7 @@ MDO is a modern, responsive web application for teams to submit and track short-
 - **Live Summary** — View team availability at a glance across multiple office locations.
 - **PIN Management** — Self-service PIN updates for logged-in users.
 - **Mobile First** — Optimized for high-performance mobile scrolling with a clean, app-like interface.
+- **1 Leave Per Day Limit** — Each user can only submit **one leave per day**. If a leave has already been submitted for a given day (Today or Tomorrow), all leave-type buttons for that day are automatically disabled and display an **"Already Submitted"** indicator. A backend guard also blocks duplicate submissions at the `addLeave` level.
 
 ### For Admins Only *(PIN-protected)*
 - **Auto Dashboard Redirect** — Admin is redirected straight to the **Dashboard** upon successful PIN entry.
