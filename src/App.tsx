@@ -819,7 +819,8 @@ export default function App() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   </div>
                   
-                  {allowedUsers
+                  {[...allowedUsers]
+                    .sort((a, b) => a.id.localeCompare(b.id))
                     .filter(u => u.id.toLowerCase().includes(searchQuery.toLowerCase()))
                     .map((user) => (
                     <div key={user.id} className="group relative flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl transition-all hover:border-indigo-200 dark:hover:border-indigo-900/50">
