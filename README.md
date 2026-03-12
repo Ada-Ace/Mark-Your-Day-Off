@@ -236,6 +236,9 @@ function doPost(e) {
         data.type,
         data.date
       ]);
+      
+      // Auto-cleanup records older than 7 days
+      cleanOldLeaves(leafSheet);
     }
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
@@ -244,6 +247,28 @@ function doPost(e) {
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function cleanOldLeaves(leafSheet) {
+  try {
+    const data = leafSheet.getDataRange().getValues();
+    if (data.length <= 1) return;
+    
+    const now = new Date().getTime();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    
+    // Reverse loop to avoid index shifting safely when deleting rows
+    for (let i = data.length - 1; i > 0; i--) {
+      const row = data[i];
+      // Column B (index 1) contains the timestamp
+      const insertDate = new Date(row[1]).getTime();
+      if (now - insertDate > SEVEN_DAYS_MS) {
+        leafSheet.deleteRow(i + 1); // +1 because rows are 1-indexed
+      }
+    }
+  } catch (e) {
+    console.log("Cleanup failed: ", e);
   }
 }
 ```
