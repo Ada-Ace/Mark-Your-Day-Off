@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import {
   Users,
@@ -21,7 +21,9 @@ import {
   Search,
   Loader2,
   Eye,
-  EyeOff
+  EyeOff,
+  Clock,
+  MessageSquare
 } from 'lucide-react';
 
 interface UserAccess {
@@ -126,7 +128,8 @@ const formatUserId = (id: string) => {
 
 const LEAVE_TYPES = {
   MEDICAL: { label: 'Medical Leave', icon: <Stethoscope className="w-5 h-5" />, color: 'bg-red-500', text: 'text-red-600' },
-  URGENT: { label: 'Urgent Leave', icon: <AlertCircle className="w-5 h-5" />, color: 'bg-amber-500', text: 'text-amber-600' }
+  URGENT: { label: 'Urgent Leave', icon: <AlertCircle className="w-5 h-5" />, color: 'bg-amber-500', text: 'text-amber-600' },
+  LATE_ARRIVAL: { label: 'Late Arrival', icon: <Clock className="w-5 h-5" />, color: 'bg-violet-500', text: 'text-violet-600' }
 };
 
 interface Leave {
@@ -136,6 +139,7 @@ interface Leave {
   office: string;
   type: keyof typeof LEAVE_TYPES;
   date: string;
+  remarks?: string;
 }
 
 interface RawLeave {
@@ -145,6 +149,7 @@ interface RawLeave {
   office?: string;
   type?: string;
   date?: string;
+  remarks?: string;
 }
 
 // --- MAIN APP ---
@@ -295,6 +300,7 @@ export default function App() {
         office: String(raw.office ?? '').trim(),
         type: String(raw.type ?? '').trim() as keyof typeof LEAVE_TYPES,
         date: dateStr.trim(),
+        remarks: raw.remarks ? String(raw.remarks).trim() : undefined,
       };
     };
 
@@ -321,7 +327,11 @@ export default function App() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const addLeave = async (type: keyof typeof LEAVE_TYPES, date: string) => {
+  // --- Remarks state ---
+  const [pendingLeaveAction, setPendingLeaveAction] = useState<{ type: keyof typeof LEAVE_TYPES; date: string } | null>(null);
+  const [remarksInput, setRemarksInput] = useState('');
+
+  const addLeave = async (type: keyof typeof LEAVE_TYPES, date: string, remarks?: string) => {
     const formattedId = storedEmployeeId || formatUserId(userId);
     if (!formattedId || !userName.trim() || isSubmitting) return;
 
@@ -334,13 +344,14 @@ export default function App() {
       return;
     }
 
-    const newLeave = {
+    const newLeave: Leave = {
       id: Date.now(),
       userId: formattedId,
       userName: toTitleCase(userName),
       office: userOffice,
       type: type,
-      date: date
+      date: date,
+      ...(remarks?.trim() ? { remarks: remarks.trim() } : {}),
     };
 
     setIsSubmitting(true);
@@ -379,6 +390,43 @@ export default function App() {
       setView('dashboard');
     }, 1500);
   };
+
+  // Auto-remove remarks on LATE_ARRIVAL entries at 13:00
+  const lateArrivalCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const scheduleCleanup = () => {
+      const now = new Date();
+      const cutoff = new Date();
+      cutoff.setHours(13, 0, 0, 0);
+      const msUntilCutoff = cutoff.getTime() - now.getTime();
+
+      if (msUntilCutoff <= 0) {
+        // Already past 13:00 — strip remarks now
+        setLeaves(prev =>
+          prev.map(l =>
+            l.type === 'LATE_ARRIVAL' && l.date === TODAY_ID && l.remarks
+              ? { ...l, remarks: undefined }
+              : l
+          )
+        );
+      } else {
+        lateArrivalCleanupRef.current = setTimeout(() => {
+          setLeaves(prev =>
+            prev.map(l =>
+              l.type === 'LATE_ARRIVAL' && l.date === TODAY_ID && l.remarks
+                ? { ...l, remarks: undefined }
+                : l
+            )
+          );
+        }, msUntilCutoff);
+      }
+    };
+
+    scheduleCleanup();
+    return () => {
+      if (lateArrivalCleanupRef.current) clearTimeout(lateArrivalCleanupRef.current);
+    };
+  }, []);
   const generatePin = () => {
     return Math.floor(1000 + Math.random() * 9000).toString();
   };
@@ -759,6 +807,10 @@ export default function App() {
             isSubmitting={isSubmitting}
             storedEmployeeId={storedEmployeeId}
             leaves={leaves}
+            pendingLeaveAction={pendingLeaveAction}
+            setPendingLeaveAction={setPendingLeaveAction}
+            remarksInput={remarksInput}
+            setRemarksInput={setRemarksInput}
           />
         )}
       </main>
@@ -985,15 +1037,19 @@ interface SubmitterProps {
   setUserId: (id: string) => void;
   userName: string;
   setUserName: (name: string) => void;
-  onAdd: (type: keyof typeof LEAVE_TYPES, date: string) => void;
+  onAdd: (type: keyof typeof LEAVE_TYPES, date: string, remarks?: string) => void;
   onChangePin: () => void;
   showSuccess: boolean;
   isSubmitting: boolean;
   storedEmployeeId?: string;
   leaves: Leave[];
+  pendingLeaveAction: { type: keyof typeof LEAVE_TYPES; date: string } | null;
+  setPendingLeaveAction: (action: { type: keyof typeof LEAVE_TYPES; date: string } | null) => void;
+  remarksInput: string;
+  setRemarksInput: (v: string) => void;
 }
 
-function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, onChangePin, showSuccess, isSubmitting, storedEmployeeId, leaves }: SubmitterProps) {
+function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, onChangePin, showSuccess, isSubmitting, storedEmployeeId, leaves, pendingLeaveAction, setPendingLeaveAction, remarksInput, setRemarksInput }: SubmitterProps) {
   // Sync stored ID to parent state if available
   useEffect(() => {
     if (storedEmployeeId) {
@@ -1006,11 +1062,31 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
   const todayTaken = leaves.some(l => l.userId === currentUserId && l.date === TODAY_ID);
   const tomorrowTaken = leaves.some(l => l.userId === currentUserId && l.date === TOMORROW_ID);
 
+  // Types that require remarks
+  const REQUIRES_REMARKS: Array<keyof typeof LEAVE_TYPES> = ['URGENT', 'LATE_ARRIVAL'];
+
+  const handleLeaveClick = (type: keyof typeof LEAVE_TYPES, date: string) => {
+    if (REQUIRES_REMARKS.includes(type)) {
+      setPendingLeaveAction({ type, date });
+      setRemarksInput('');
+    } else {
+      onAdd(type, date);
+    }
+  };
+
+  const handleRemarksSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingLeaveAction) return;
+    onAdd(pendingLeaveAction.type, pendingLeaveAction.date, remarksInput);
+    setPendingLeaveAction(null);
+    setRemarksInput('');
+  };
+
   return (
     <div className="max-w-md mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center">
         <h2 className="text-3xl font-extrabold tracking-tight mb-2 text-indigo-600 dark:text-indigo-400">Mark Your Day-Off</h2>
-        <p className="text-slate-500 dark:text-slate-400">Mark your medical or urgent leave for today or the next work day.</p>
+        <p className="text-slate-500 dark:text-slate-400">Mark your medical, urgent leave, or late arrival for today or the next work day.</p>
       </div>
 
       <div className="bg-[#faf9f6] dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6 transition-colors duration-300">
@@ -1065,7 +1141,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
               <div className="flex gap-2">
                 <button
                   disabled={isSubmitting || todayTaken}
-                  onClick={() => onAdd('MEDICAL', TODAY_ID)}
+                  onClick={() => handleLeaveClick('MEDICAL', TODAY_ID)}
                   className={`flex-1 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
                     todayTaken
                       ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 shadow-none cursor-not-allowed'
@@ -1086,7 +1162,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
                 </button>
                 <button
                   disabled={isSubmitting || tomorrowTaken}
-                  onClick={() => onAdd('MEDICAL', TOMORROW_ID)}
+                  onClick={() => handleLeaveClick('MEDICAL', TOMORROW_ID)}
                   className={`flex-1 py-3 rounded-xl font-bold active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
                     tomorrowTaken
                       ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed border-2 border-slate-300 dark:border-slate-600'
@@ -1109,14 +1185,17 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
             </div>
 
             {/* Urgent Option */}
-            <div className="group space-y-2 pt-4 border-t border-slate-100">
+            <div className="group space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2 text-amber-600 font-bold text-sm">
                 <AlertCircle size={18} /> Urgent / Personal
+                <span className="ml-auto text-[10px] text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full font-bold tracking-wide flex items-center gap-1">
+                  <MessageSquare size={10} /> Remarks required
+                </span>
               </div>
               <div className="flex gap-2">
                 <button
                   disabled={isSubmitting || todayTaken}
-                  onClick={() => onAdd('URGENT', TODAY_ID)}
+                  onClick={() => handleLeaveClick('URGENT', TODAY_ID)}
                   className={`flex-1 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
                     todayTaken
                       ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 shadow-none cursor-not-allowed'
@@ -1137,7 +1216,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
                 </button>
                 <button
                   disabled={isSubmitting || tomorrowTaken}
-                  onClick={() => onAdd('URGENT', TOMORROW_ID)}
+                  onClick={() => handleLeaveClick('URGENT', TOMORROW_ID)}
                   className={`flex-1 py-3 rounded-xl font-bold active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
                     tomorrowTaken
                       ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed border-2 border-slate-300 dark:border-slate-600'
@@ -1158,9 +1237,103 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
                 </button>
               </div>
             </div>
+
+            {/* Late Arrival Option - Today only */}
+            <div className="group space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-violet-600 font-bold text-sm">
+                <Clock size={18} /> Late Arrival
+                <span className="ml-auto text-[10px] text-violet-500 bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 rounded-full font-bold tracking-wide flex items-center gap-1">
+                  <MessageSquare size={10} /> Remarks required
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium pl-0.5">Today only · Remarks auto-cleared at 13:00</p>
+              <button
+                disabled={isSubmitting || todayTaken}
+                onClick={() => handleLeaveClick('LATE_ARRIVAL', TODAY_ID)}
+                className={`w-full py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
+                  todayTaken
+                    ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 shadow-none cursor-not-allowed'
+                    : 'bg-violet-500 text-white shadow-violet-200 hover:bg-violet-600 disabled:opacity-50'
+                }`}
+              >
+                {todayTaken ? (
+                  <>
+                    <CheckCircle2 size={16} />
+                    <span className="text-xs font-bold">Already Submitted</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Today</span>
+                    <span className="text-xs font-medium opacity-90">{TODAY_SHORT_LABEL}</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Remarks Modal */}
+      {pendingLeaveAction && (
+        <div className="fixed inset-0 flex items-center justify-center bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm z-[60] p-4">
+          <form
+            onSubmit={handleRemarksSubmit}
+            className="bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl space-y-6 w-full max-w-sm border border-slate-100 dark:border-slate-800 animate-in zoom-in duration-200"
+          >
+            <div className="text-center space-y-2">
+              <div className={`mx-auto w-14 h-14 rounded-2xl flex items-center justify-center mb-3 ${
+                pendingLeaveAction.type === 'LATE_ARRIVAL' ? 'bg-violet-100 dark:bg-violet-900/40' : 'bg-amber-100 dark:bg-amber-900/40'
+              }`}>
+                {pendingLeaveAction.type === 'LATE_ARRIVAL'
+                  ? <Clock className="text-violet-600 dark:text-violet-400 w-7 h-7" />
+                  : <AlertCircle className="text-amber-600 dark:text-amber-400 w-7 h-7" />}
+              </div>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                {pendingLeaveAction.type === 'LATE_ARRIVAL' ? 'Late Arrival' : 'Urgent Leave'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                {pendingLeaveAction.date === TODAY_ID ? 'Today' : 'Tomorrow'} · Please provide a brief reason
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 pl-1">Remarks</label>
+              <textarea
+                autoFocus
+                required
+                value={remarksInput}
+                onChange={e => setRemarksInput(e.target.value)}
+                placeholder={pendingLeaveAction.type === 'LATE_ARRIVAL' ? 'e.g. Doctor appointment, ETA 10am…' : 'e.g. Family emergency…'}
+                rows={3}
+                maxLength={200}
+                className="w-full p-4 bg-slate-50 dark:bg-slate-950 border-2 border-slate-100 dark:border-slate-800 rounded-2xl focus:border-indigo-500 focus:ring-0 focus:outline-none transition-all dark:text-white dark:placeholder-slate-600 text-sm resize-none"
+              />
+              <p className="text-[10px] text-slate-400 text-right mt-1">{remarksInput.length}/200</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setPendingLeaveAction(null); setRemarksInput(''); }}
+                className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!remarksInput.trim() || isSubmitting}
+                className={`flex-1 px-4 py-3 rounded-xl font-bold text-white transition-colors shadow-md disabled:opacity-50 ${
+                  pendingLeaveAction.type === 'LATE_ARRIVAL'
+                    ? 'bg-violet-600 hover:bg-violet-700'
+                    : 'bg-amber-500 hover:bg-amber-600'
+                }`}
+              >
+                Submit
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {showSuccess && (
         <div className="fixed inset-0 flex items-center justify-center bg-[#faf9f6]/80 dark:bg-slate-950/80 backdrop-blur-sm z-50">
@@ -1377,24 +1550,30 @@ const OfficeColumn: React.FC<OfficeColumnProps> = ({ office, leaves, onRemove, h
           leaves.map(leave => (
             <div
               key={leave.id}
-              className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl group transition-all hover:border-slate-300 dark:hover:border-slate-700"
+              className="flex items-start justify-between p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl group transition-all hover:border-slate-300 dark:hover:border-slate-700"
             >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-full ${LEAVE_TYPES[leave.type].color} text-white`}>
-                  {React.cloneElement(LEAVE_TYPES[leave.type].icon as React.ReactElement<{ size: number }>, { size: 16 })}
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <div className={`p-2 rounded-full ${LEAVE_TYPES[leave.type]?.color ?? 'bg-slate-400'} text-white flex-shrink-0 mt-0.5`}>
+                  {React.cloneElement(LEAVE_TYPES[leave.type]?.icon as React.ReactElement<{ size: number }>, { size: 16 })}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="font-bold text-slate-800 dark:text-slate-200 leading-none mb-1">{leave.userName}</div>
                   <div className="text-sm text-slate-400 dark:text-slate-500 font-mono mb-1">{leave.userId}</div>
-                  <div className={`text-sm font-bold ${LEAVE_TYPES[leave.type].text}`}>
-                    {LEAVE_TYPES[leave.type].label}
+                  <div className={`text-sm font-bold ${LEAVE_TYPES[leave.type]?.text ?? 'text-slate-500'}`}>
+                    {LEAVE_TYPES[leave.type]?.label ?? leave.type}
                   </div>
+                  {leave.remarks && (
+                    <div className="mt-1.5 flex items-start gap-1 text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1 max-w-[180px]">
+                      <MessageSquare size={10} className="flex-shrink-0 mt-0.5 opacity-60" />
+                      <span className="break-words leading-snug">{leave.remarks}</span>
+                    </div>
+                  )}
                 </div>
               </div>
               {isAdmin && (
                 <button
                   onClick={() => setConfirm({ type: 'delete', leaveId: leave.id })}
-                  className="text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                  className="text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0 ml-2"
                   title="Clear status"
                 >
                   <Trash2 size={18} />

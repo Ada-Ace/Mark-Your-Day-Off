@@ -1,6 +1,6 @@
 # Mark Your Day-Off (MDO)
 
-MDO is a modern, responsive web application for teams to submit and track short-term leaves (Medical & Urgent/Personal) across office locations. It features a simplified, mobile-first dashboard that displays records for **Yesterday**, **Today**, and **Tomorrow**.
+MDO is a modern, responsive web application for teams to submit and track short-term leaves (Medical, Urgent/Personal, and Late Arrival) across office locations. It features a simplified, mobile-first dashboard that displays records for **Yesterday**, **Today**, and **Tomorrow**.
 
 ---
 
@@ -16,6 +16,20 @@ MDO is a modern, responsive web application for teams to submit and track short-
 - **PIN Management** — Self-service PIN updates for logged-in users.
 - **Mobile First** — Optimized for high-performance mobile scrolling with a clean, app-like interface.
 - **1 Leave Per Day Limit** — Each user can only submit **one leave per day**. If a leave has already been submitted for a given day (Today or Tomorrow), all leave-type buttons for that day are automatically disabled and display an **"Already Submitted"** indicator. A backend guard also blocks duplicate submissions at the `addLeave` level.
+
+### Leave Types
+
+| Type | Color | Dates Available | Remarks Required |
+|---|---|---|---|
+| 🔴 **Medical / Sick Leave** | Red | Today, Tomorrow | No |
+| 🟡 **Urgent / Personal Leave** | Amber | Today, Tomorrow | ✅ Yes |
+| 🟣 **Late Arrival** | Violet | Today only | ✅ Yes |
+
+### Remarks System
+- **Urgent Leave** and **Late Arrival** require a brief reason before submission.
+- A modal prompts the user for remarks (max 200 characters) with contextual placeholder text.
+- Submitted remarks are displayed as a subtle bubble on each Dashboard leave card.
+- **⏰ Late Arrival remarks are automatically cleared at 13:00** — the entry stays, but the remarks text is removed.
 
 ### For Admins Only *(PIN-protected)*
 - **Auto Dashboard Redirect** — Admin is redirected straight to the **Dashboard** upon successful PIN entry.
@@ -58,11 +72,11 @@ MDO is a modern, responsive web application for teams to submit and track short-
    npm install
    ```
 
-3. **Configure Environment Variables** — Create a `.env` file in the root:
+3. **Configure Environment Variables** — Copy `.env.example` to `.env` and fill in your values:
    ```env
    VITE_APP_TITLE="Mark Your Day-Off"
    VITE_GOOGLE_APPS_SCRIPT_URL="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
-   VITE_ADMIN_PIN="123456"
+   VITE_ADMIN_PIN="MD1431"
    ```
 
 4. **Run Locally:**
@@ -76,10 +90,11 @@ MDO is a modern, responsive web application for teams to submit and track short-
 
 The dashboard is designed for high-velocity updates and immediate visibility:
 
-- **🔵 Today Section**: The primary focus of the app, showing real-time availability.
-- **🌑 Tomorrow Section**: Dark grey themed section for upcoming leave planning.
+- **🔵 Today Section**: The primary focus of the app, showing real-time availability. Displays Medical, Urgent, and Late Arrival entries with their remarks.
+- **🌑 Tomorrow Section**: Dark grey themed section for upcoming leave planning (Medical & Urgent).
 - **⚪ Yesterday Section**: Light grey themed section for reviewing the previous day's status.
 - **🇸🇬 Holiday Badges**: Specific indicators for Singapore public holidays in 2026 (e.g., National Day, Lunar New Year).
+- **💬 Remarks Bubbles**: Remarks for Urgent and Late Arrival entries are shown inline below the leave type label.
 
 ---
 
@@ -94,7 +109,7 @@ The dashboard is designed for high-velocity updates and immediate visibility:
 ### Admin Mode
 Click the **🔒 Lock icon** (Desktop) or the **Lock icon** in the navigation group to enter the Admin PIN.
 - **Admin features**: Manage Access (Shield Check), Delete Records (Trash icon).
-- The Admin PIN is managed via the Google Apps Script backend.
+- The Admin PIN is managed via the `VITE_ADMIN_PIN` environment variable.
 
 ---
 
@@ -152,7 +167,8 @@ function doGet() {
           userName: String(row[3]).trim(),
           office: String(row[4]).trim(),
           type: String(row[5]).trim(),
-          date: String(dateVal).trim()
+          date: String(dateVal).trim(),
+          remarks: row[7] ? String(row[7]).trim() : undefined  // Column H
         };
       });
     }
@@ -163,14 +179,12 @@ function doGet() {
   const userSheet = ss.getSheetByName(USERS_SHEET);
   if (userSheet) {
     const data = userSheet.getDataRange().getValues();
-    // Assuming no header row for Users, or if there is, adjust slice:
     users = data.map(row => {
       if (!row[0]) return null;
       return { id: String(row[0]).trim(), pin: String(row[1]).trim() };
     }).filter(row => row !== null);
   }
 
-  // Return both so devices sync perfectly upon loading the app
   return ContentService.createTextOutput(JSON.stringify({ leaves, users }))
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -221,7 +235,7 @@ function doPost(e) {
       const rows = userSheet.getDataRange().getValues();
       for (let i = 0; i < rows.length; i++) {
         if (String(rows[i][0]).trim() === String(data.id).trim()) {
-          userSheet.getRange(i + 1, 2).setValue(data.pin); // column B
+          userSheet.getRange(i + 1, 2).setValue(data.pin);
           break;
         }
       }
@@ -230,6 +244,7 @@ function doPost(e) {
     }
 
     // Default: Add Leave Record
+    // Columns: [id, timestamp, userId, userName, office, type, date, remarks]
     if (leafSheet) {
       leafSheet.appendRow([
         data.id,
@@ -238,7 +253,8 @@ function doPost(e) {
         data.userName,
         data.office,
         data.type,
-        data.date
+        data.date,
+        data.remarks || ''   // Column H — remarks (empty string if not provided)
       ]);
       
       // Auto-cleanup records older than 7 days
@@ -265,10 +281,9 @@ function cleanOldLeaves(leafSheet) {
     // Reverse loop to avoid index shifting safely when deleting rows
     for (let i = data.length - 1; i > 0; i--) {
       const row = data[i];
-      // Column B (index 1) contains the timestamp
       const insertDate = new Date(row[1]).getTime();
       if (now - insertDate > SEVEN_DAYS_MS) {
-        leafSheet.deleteRow(i + 1); // +1 because rows are 1-indexed
+        leafSheet.deleteRow(i + 1);
       }
     }
   } catch (e) {
@@ -276,6 +291,8 @@ function cleanOldLeaves(leafSheet) {
   }
 }
 ```
+
+> **⚠️ Important — Remarks Column:** The updated script now writes remarks to **Column H** (`row[7]`) of the Leaves sheet. If you have existing data, the sheet will auto-expand — no manual changes needed. Just make sure to **deploy as a New Version** after updating the script.
 
 ### Step 3: Deploy
 1. Click **Deploy → New deployment**.
@@ -292,7 +309,8 @@ Mark-Your-Day-Off/
 │   ├── App.tsx        # Unified component architecture
 │   └── index.css      # Design system & Tailwind tokens
 ├── public/            # Static assets
-├── .env               # Private configuration
+├── .env               # Private configuration (git-ignored)
+├── .env.example       # Template — safe to commit
 └── README.md
 ```
 

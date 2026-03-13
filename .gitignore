@@ -26,3 +26,5 @@ dist-ssr
 # Environment variables — contains secrets (Admin PIN, GAS URL). NEVER commit this!
 .env
 .env.*
+# Allow the example template to be committed
+!.env.example
