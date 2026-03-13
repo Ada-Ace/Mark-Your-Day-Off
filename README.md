@@ -135,7 +135,7 @@ Click the **🔒 Lock icon** in the nav bar to enter the Admin PIN.
 
 1. Open your Google Sheet and confirm two tabs exist: **`Leaves`** and **`Users`**.
 2. In the **`Users`** tab, seed your default access records:
-   - Row 1: `SS-023` | `1431`
+   - Row 1: `SS-000` | `1431`
    - Row 2: `ST-001` | `1234`
 
 ---
