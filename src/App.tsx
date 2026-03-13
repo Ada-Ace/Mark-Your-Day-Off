@@ -431,19 +431,16 @@ export default function App() {
     }, 1500);
   };
 
-  // Auto-remove LATE_ARRIVAL remarks at 13:00 (both from React state and localStorage cache)
+  // At 13:00 in the office's timezone, fully remove all LATE_ARRIVAL entries
+  // for today — both from React state and from the localStorage remarks cache.
   const lateArrivalCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const doCleanup = () => {
-      // 1. Clear from React state
-      setLeaves(prev =>
-        prev.map(l =>
-          l.type === 'LATE_ARRIVAL' && l.date === TODAY_ID && l.remarks
-            ? { ...l, remarks: undefined }
-            : l
-        )
-      );
-      // 2. Also purge LATE_ARRIVAL today entries from localStorage cache
+      // 1. Remove entire LATE_ARRIVAL entries for today from React state
+      setLeaves(prev => prev.filter(
+        l => !(l.type === 'LATE_ARRIVAL' && l.date === TODAY_ID)
+      ));
+      // 2. Purge LATE_ARRIVAL today entries from localStorage remarks cache
       const cache = loadRemarksCache();
       const updated = Object.fromEntries(
         Object.entries(cache).filter(
@@ -453,13 +450,25 @@ export default function App() {
       saveRemarksCache(updated);
     };
 
-    const now = new Date();
-    const cutoff = new Date();
-    cutoff.setHours(13, 0, 0, 0);
-    const msUntilCutoff = cutoff.getTime() - now.getTime();
+    // Compute ms until 13:00 in the office's timezone (e.g. GMT+8 = +480 min).
+    // Parse the UTC offset from the OFFICES tz string so it works even if the
+    // user's browser is in a different timezone.
+    const officeTz = OFFICES[0]?.tz ?? 'GMT+8';
+    const sign = officeTz.includes('-') ? -1 : 1;
+    const parts = officeTz.replace('GMT', '').replace('+', '').replace('-', '').split(':');
+    const offsetMinutes = sign * (parseInt(parts[0] || '0') * 60 + parseInt(parts[1] || '0'));
+
+    const nowUtcMs = Date.now();
+    // Current time expressed as minutes-since-midnight in the office timezone
+    const nowOffsetMs = nowUtcMs + offsetMinutes * 60_000;
+    const midnight = new Date(nowOffsetMs);
+    midnight.setUTCHours(0, 0, 0, 0);
+    // 13:00 office time → in UTC ms
+    const cutoffUtcMs = midnight.getTime() + (13 * 60 - offsetMinutes) * 60_000;
+    const msUntilCutoff = cutoffUtcMs - nowUtcMs;
 
     if (msUntilCutoff <= 0) {
-      // Already past 13:00 — clean up immediately
+      // Already past 13:00 office time — remove immediately
       doCleanup();
     } else {
       lateArrivalCleanupRef.current = setTimeout(doCleanup, msUntilCutoff);
@@ -1104,6 +1113,14 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
   const todayTaken = leaves.some(l => l.userId === currentUserId && l.date === TODAY_ID);
   const tomorrowTaken = leaves.some(l => l.userId === currentUserId && l.date === TOMORROW_ID);
 
+  // Check if it's past 13:00 in the office's timezone — Late Arrival is no longer submittable
+  const officeTz = OFFICES[0]?.tz ?? 'GMT+8';
+  const tzSign = officeTz.includes('-') ? -1 : 1;
+  const tzParts = officeTz.replace('GMT', '').replace('+', '').replace('-', '').split(':');
+  const tzOffsetMin = tzSign * (parseInt(tzParts[0] || '0') * 60 + parseInt(tzParts[1] || '0'));
+  const nowInOffice = new Date(Date.now() + tzOffsetMin * 60_000);
+  const isPastCutoff = nowInOffice.getUTCHours() >= 13;
+
   // Types that require remarks
   const REQUIRES_REMARKS: Array<keyof typeof LEAVE_TYPES> = ['URGENT', 'LATE_ARRIVAL'];
 
@@ -1288,12 +1305,12 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
                   <MessageSquare size={10} /> Remarks required
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium pl-0.5">Today only · Remarks auto-cleared at 13:00</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium pl-0.5">Today only · Record removed from dashboard at 13:00</p>
               <button
-                disabled={isSubmitting || todayTaken}
+                disabled={isSubmitting || todayTaken || isPastCutoff}
                 onClick={() => handleLeaveClick('LATE_ARRIVAL', TODAY_ID)}
                 className={`w-full py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
-                  todayTaken
+                  todayTaken || isPastCutoff
                     ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 shadow-none cursor-not-allowed'
                     : 'bg-violet-500 text-white shadow-violet-200 hover:bg-violet-600 disabled:opacity-50'
                 }`}
@@ -1302,6 +1319,11 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
                   <>
                     <CheckCircle2 size={16} />
                     <span className="text-xs font-bold">Already Submitted</span>
+                  </>
+                ) : isPastCutoff ? (
+                  <>
+                    <Clock size={16} />
+                    <span className="text-xs font-bold">Not available after 13:00</span>
                   </>
                 ) : (
                   <>
