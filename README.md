@@ -15,7 +15,7 @@ MDO is a modern, responsive web application for teams to submit and track short-
 - **Live Summary** — View team availability at a glance across office locations.
 - **PIN Management** — Self-service PIN updates for logged-in users.
 - **Mobile First** — Optimized for high-performance mobile scrolling with a clean, app-like interface.
-- **1 Leave Per Day Limit** — Each user can only submit one leave per day. Duplicate buttons are disabled and show an **"Already Submitted"** indicator.
+- **1 Leave Per Day Limit** — Each user can only submit one leave per day. (Exception: A full **Medical** or **Urgent** leave can still be submitted even if you have already marked a **Late Arrival** for that same day). Duplicate buttons are disabled once a full leave is taken.
 
 ### Leave Types
 
@@ -28,7 +28,7 @@ MDO is a modern, responsive web application for teams to submit and track short-
 ### Remarks System
 - **Urgent Leave** and **Late Arrival** trigger a remarks modal before submission (max 200 characters).
 - Remarks appear as a subtle bubble on each leave card in the Dashboard.
-- **⏰ Late Arrival remarks are automatically cleared at 13:00** — the entry stays visible, only the remarks text is removed.
+- **⏰ Late Arrival records are removed at 13:00** — the entire entry is automatically cleared from the dashboard and local caches at 13:00 office time (GMT+8).
 - Remarks are cached in `localStorage` and survive page reloads, even before the GAS backend is updated.
 
 ### For Admins Only *(PIN-protected)*
