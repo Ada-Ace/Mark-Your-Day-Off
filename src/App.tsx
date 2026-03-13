@@ -228,8 +228,8 @@ export default function App() {
       console.error('Failed to parse allowed users:', e);
     }
     return [
-      { id: 'ST-001', pin: '1234' },
-      { id: 'SS-023', pin: '1431' }
+      { id: 'SS-001', pin: '1234' },
+      { id: 'SS-000', pin: '1431' }
     ];
   });
   const [newIdInput, setNewIdInput] = useState('');
