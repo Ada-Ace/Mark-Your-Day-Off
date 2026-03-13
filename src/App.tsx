@@ -109,6 +109,16 @@ const toTitleCase = (str: string) => {
     .join(' ');
 };
 
+const getIsPastCutoff = () => {
+  const officeTz = OFFICES[0]?.tz ?? 'GMT+8';
+  const tzSign = officeTz.includes('-') ? -1 : 1;
+  const tzParts = officeTz.replace('GMT', '').replace('+', '').replace('-', '').split(':');
+  const tzOffsetMin = tzSign * (parseInt(tzParts[0] || '0') * 60 + parseInt(tzParts[1] || '0'));
+  // current office time
+  const nowInOffice = new Date(Date.now() + tzOffsetMin * 60_000);
+  return nowInOffice.getUTCHours() >= 13;
+};
+
 const formatUserId = (id: string) => {
   let result = '';
   const u = id.toUpperCase();
@@ -450,25 +460,20 @@ export default function App() {
       saveRemarksCache(updated);
     };
 
-    // Compute ms until 13:00 in the office's timezone (e.g. GMT+8 = +480 min).
-    // Parse the UTC offset from the OFFICES tz string so it works even if the
-    // user's browser is in a different timezone.
+    // Calculate ms until next 13:00 in office time
     const officeTz = OFFICES[0]?.tz ?? 'GMT+8';
     const sign = officeTz.includes('-') ? -1 : 1;
     const parts = officeTz.replace('GMT', '').replace('+', '').replace('-', '').split(':');
     const offsetMinutes = sign * (parseInt(parts[0] || '0') * 60 + parseInt(parts[1] || '0'));
 
     const nowUtcMs = Date.now();
-    // Current time expressed as minutes-since-midnight in the office timezone
     const nowOffsetMs = nowUtcMs + offsetMinutes * 60_000;
     const midnight = new Date(nowOffsetMs);
     midnight.setUTCHours(0, 0, 0, 0);
-    // 13:00 office time → in UTC ms
     const cutoffUtcMs = midnight.getTime() + (13 * 60 - offsetMinutes) * 60_000;
     const msUntilCutoff = cutoffUtcMs - nowUtcMs;
 
     if (msUntilCutoff <= 0) {
-      // Already past 13:00 office time — remove immediately
       doCleanup();
     } else {
       lateArrivalCleanupRef.current = setTimeout(doCleanup, msUntilCutoff);
@@ -1114,12 +1119,7 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
   const tomorrowTaken = leaves.some(l => l.userId === currentUserId && l.date === TOMORROW_ID);
 
   // Check if it's past 13:00 in the office's timezone — Late Arrival is no longer submittable
-  const officeTz = OFFICES[0]?.tz ?? 'GMT+8';
-  const tzSign = officeTz.includes('-') ? -1 : 1;
-  const tzParts = officeTz.replace('GMT', '').replace('+', '').replace('-', '').split(':');
-  const tzOffsetMin = tzSign * (parseInt(tzParts[0] || '0') * 60 + parseInt(tzParts[1] || '0'));
-  const nowInOffice = new Date(Date.now() + tzOffsetMin * 60_000);
-  const isPastCutoff = nowInOffice.getUTCHours() >= 13;
+  const isPastCutoff = getIsPastCutoff();
 
   // Types that require remarks
   const REQUIRES_REMARKS: Array<keyof typeof LEAVE_TYPES> = ['URGENT', 'LATE_ARRIVAL'];
@@ -1454,17 +1454,25 @@ const Dashboard: React.FC<DashboardProps> = ({ leaves, onRemove, onManageAccess,
               <span className="text-lg font-bold text-indigo-400 dark:text-indigo-500/80 uppercase tracking-wider">{TODAY_LABEL}</span>
             </div>
           </div>
-          {OFFICES.map(office => (
-            <OfficeColumn
-              key={`${office.id}-today`}
-              office={office}
-              leaves={leaves.filter(l => l.office === office.id && l.date === TODAY_ID)}
-              onRemove={onRemove}
-              headerColor="bg-indigo-600"
-              isAdmin={isAdmin}
-              dateId={TODAY_ID}
-            />
-          ))}
+          {OFFICES.map(office => {
+            const isPastCutoff = getIsPastCutoff();
+            const filteredLeaves = leaves.filter(l => 
+              l.office === office.id && 
+              l.date === TODAY_ID && 
+              !(l.type === 'LATE_ARRIVAL' && isPastCutoff)
+            );
+            return (
+              <OfficeColumn
+                key={`${office.id}-today`}
+                office={office}
+                leaves={filteredLeaves}
+                onRemove={onRemove}
+                headerColor="bg-indigo-600"
+                isAdmin={isAdmin}
+                dateId={TODAY_ID}
+              />
+            );
+          })}
         </div>
 
         {/* Tomorrow Column - Darker Grey */}
