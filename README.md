@@ -100,7 +100,7 @@ MDO is a modern, responsive web application for teams to submit and track short-
 
 ### Access System
 - Login uses a strict `AA-111` format Employee ID (2 letters + 3 numbers), enforced as you type.
-- **Default Employee ID:** `SS-023` · **Default PIN:** `1431`
+- **Default Employee ID:** `SS-000` · **Default PIN:** `1431`
 - Users update their own PIN from the leave submission screen.
 
 ### Admin Mode
