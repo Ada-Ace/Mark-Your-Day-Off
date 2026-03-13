@@ -10,33 +10,33 @@ MDO is a modern, responsive web application for teams to submit and track short-
 - **Personalized Access** — Secure login using Employee ID (`AA-111` format) and a personal 4-digit PIN.
 - **Show / Hide PIN** — Eye icon toggle on all PIN fields for safe, optional visibility.
 - **Calendar Day System** — Track availability 7 days a week (including weekends).
-- **Country-Specific Public Holidays** — Dynamic holiday indicators mapped precisely to the office's configured country and timezone.
+- **Country-Specific Public Holidays** — Dynamic holiday indicators mapped to the office's country and timezone.
 - **Quick Submission** — Bold, animated **"Mark Off"** button on mobile header for fast, one-tap leave submission.
-- **Live Summary** — View team availability at a glance across multiple office locations.
+- **Live Summary** — View team availability at a glance across office locations.
 - **PIN Management** — Self-service PIN updates for logged-in users.
 - **Mobile First** — Optimized for high-performance mobile scrolling with a clean, app-like interface.
-- **1 Leave Per Day Limit** — Each user can only submit **one leave per day**. If a leave has already been submitted for a given day (Today or Tomorrow), all leave-type buttons for that day are automatically disabled and display an **"Already Submitted"** indicator. A backend guard also blocks duplicate submissions at the `addLeave` level.
+- **1 Leave Per Day Limit** — Each user can only submit one leave per day. Duplicate buttons are disabled and show an **"Already Submitted"** indicator.
 
 ### Leave Types
 
-| Type | Color | Dates Available | Remarks Required |
+| Type | Color | Dates | Remarks |
 |---|---|---|---|
-| 🔴 **Medical / Sick Leave** | Red | Today, Tomorrow | No |
-| 🟡 **Urgent / Personal Leave** | Amber | Today, Tomorrow | ✅ Yes |
-| 🟣 **Late Arrival** | Violet | Today only | ✅ Yes |
+| 🔴 **Medical / Sick Leave** | Red | Today, Tomorrow | Not required |
+| 🟡 **Urgent / Personal Leave** | Amber | Today, Tomorrow | ✅ Required |
+| 🟣 **Late Arrival** | Violet | Today only | ✅ Required |
 
 ### Remarks System
-- **Urgent Leave** and **Late Arrival** require a brief reason before submission.
-- A modal prompts the user for remarks (max 200 characters) with contextual placeholder text.
-- Submitted remarks are displayed as a subtle bubble on each Dashboard leave card.
-- **⏰ Late Arrival remarks are automatically cleared at 13:00** — the entry stays, but the remarks text is removed.
+- **Urgent Leave** and **Late Arrival** trigger a remarks modal before submission (max 200 characters).
+- Remarks appear as a subtle bubble on each leave card in the Dashboard.
+- **⏰ Late Arrival remarks are automatically cleared at 13:00** — the entry stays visible, only the remarks text is removed.
+- Remarks are cached in `localStorage` and survive page reloads, even before the GAS backend is updated.
 
 ### For Admins Only *(PIN-protected)*
-- **Auto Dashboard Redirect** — Admin is redirected straight to the **Dashboard** upon successful PIN entry.
-- **Manage Access** — ID search field, sorted ascending, with real-time loading spinners during add/remove operations.
-- **Auto-Cleanup** — Leave records older than 7 days are automatically removed from Google Sheets on every new submission.
-- **Remove Records** — Admins can clear a user's status from the dashboard (via hover on desktop or long-press/view on mobile).
-- **Security Control** — Lock/Unlock admin mode to prevent unauthorized record tampering.
+- **Auto Dashboard Redirect** — Admin goes straight to the Dashboard after login.
+- **Manage Access** — Add/remove Employee IDs with auto-generated PINs. Searchable, sorted list.
+- **Auto-Cleanup** — Leave records older than 7 days are removed from Google Sheets on every new submission.
+- **Remove Records** — Hover (desktop) or tap (mobile) a leave card to reveal the delete button.
+- **Security Control** — Lock/Unlock admin mode at any time.
 
 ---
 
@@ -45,10 +45,10 @@ MDO is a modern, responsive web application for teams to submit and track short-
 | Technology | Purpose |
 |---|---|
 | **React 19** | Core UI framework |
-| **Vite** | Build tool & high-speed development |
-| **Tailwind CSS v4** | Modern, utility-first styling |
-| **Framer Motion** | Premium animations and micro-interactions |
-| **Lucide React** | Consistent, high-quality iconography |
+| **Vite** | Build tool & dev server |
+| **Tailwind CSS v4** | Utility-first styling |
+| **Framer Motion** | Animations & micro-interactions |
+| **Lucide React** | Iconography |
 | **Google Apps Script** | Serverless backend API |
 | **Google Sheets** | Real-time database storage |
 
@@ -57,7 +57,7 @@ MDO is a modern, responsive web application for teams to submit and track short-
 ## 🚀 Getting Started
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) (Version 18+) installed.
+- [Node.js](https://nodejs.org/) v18+
 
 ### Installation
 
@@ -72,82 +72,87 @@ MDO is a modern, responsive web application for teams to submit and track short-
    npm install
    ```
 
-3. **Configure Environment Variables** — Copy `.env.example` to `.env` and fill in your values:
+3. **Configure environment variables** — copy `.env.example` to `.env` and fill in your values:
    ```env
    VITE_APP_TITLE="Mark Your Day-Off"
    VITE_GOOGLE_APPS_SCRIPT_URL="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
    VITE_ADMIN_PIN="MD1431"
    ```
 
-4. **Run Locally:**
+4. **Run locally:**
    ```bash
    npm run dev
    ```
 
 ---
 
-## 📊 Dashboard Experience
+## 📊 Dashboard
 
-The dashboard is designed for high-velocity updates and immediate visibility:
-
-- **🔵 Today Section**: The primary focus of the app, showing real-time availability. Displays Medical, Urgent, and Late Arrival entries with their remarks.
-- **🌑 Tomorrow Section**: Dark grey themed section for upcoming leave planning (Medical & Urgent).
-- **⚪ Yesterday Section**: Light grey themed section for reviewing the previous day's status.
-- **🇸🇬 Holiday Badges**: Specific indicators for Singapore public holidays in 2026 (e.g., National Day, Lunar New Year).
-- **💬 Remarks Bubbles**: Remarks for Urgent and Late Arrival entries are shown inline below the leave type label.
+- **🔵 Today** — Primary section. Shows Medical, Urgent, and Late Arrival entries with remarks bubbles.
+- **🌑 Tomorrow** — Dark grey section for upcoming Medical & Urgent leaves.
+- **⚪ Yesterday** — Light grey section for the previous day's records.
+- **🗓️ Holiday Badges** — Singapore public holidays for 2026 highlighted automatically.
+- **💬 Remarks Bubbles** — Inline remarks shown below the leave type label on each card.
 
 ---
 
 ## 🔒 Security & Admin
 
 ### Access System
-- **Login Format**: Users must log in using a strict `AA-111` formatted Employee ID (2 letters, 3 numbers). This is enforced in real-time as users type.
-- **Default Employee ID**: `SS-023`
-- **Default Access PIN**: `1431`
-- Users can update their personal PIN from the leave submission interface.
+- Login uses a strict `AA-111` format Employee ID (2 letters + 3 numbers), enforced as you type.
+- **Default Employee ID:** `SS-023` · **Default PIN:** `1431`
+- Users update their own PIN from the leave submission screen.
 
 ### Admin Mode
-Click the **🔒 Lock icon** (Desktop) or the **Lock icon** in the navigation group to enter the Admin PIN.
-- **Admin features**: Manage Access (Shield Check), Delete Records (Trash icon).
-- The Admin PIN is managed via the `VITE_ADMIN_PIN` environment variable.
+Click the **🔒 Lock icon** in the nav bar to enter the Admin PIN.
+- Admin PIN is set via the `VITE_ADMIN_PIN` environment variable.
+- Admin features: **Manage Access** (Shield icon) · **Delete Records** (Trash icon on hover).
 
 ---
 
-## 📱 Mobile Optimization
+## 📱 Mobile — Add to Home Screen
 
-For the "Native App" experience on **iOS** or **Android**:
-1. Open the URL in your mobile browser (**Safari** for iOS, **Chrome** for Android).
-2. Use the browser's "Share" or "Menu" button.
-3. Select **"Add to Home Screen"**.
-4. Launch **MDO** from your home screen for a full-screen, clean UI without browser bars.
+1. Open the app URL in **Safari** (iOS) or **Chrome** (Android).
+2. Tap **Share → Add to Home Screen** (iOS) or **Menu → Add to Home Screen** (Android).
+3. Launch MDO from your home screen for a full-screen, app-like experience.
 
 ---
 
-## ☁️ Google Apps Script Backend Setup (Required for Syncing)
+## ☁️ Google Apps Script Backend Setup
 
-To ensure that Employee IDs added via the mobile app are synced to laptops and other devices, you **must update your backend** to store both Leaves and Users. 
+### Sheet Structure
 
-### Step 1: Create the Sheets
-1. Go to your Google Sheet.
-2. Ensure you have two tabs at the bottom:
-   - **`Leaves`** 
-   - **`Users`**
-3. Open the **`Users`** sheet. Add your default access IDs in the first few rows:
-   - Row 1: `SS-023` in column A, `1431` in column B
-   - Row 2: `ST-001` in column A, `1234` in column B
+| Tab | Columns |
+|---|---|
+| **`Leaves`** | A: ID · B: Timestamp · C: Employee ID · D: Name · E: Office · F: Type · G: Date · **H: Remarks** |
+| **`Users`** | A: Employee ID · B: PIN |
 
-### Step 2: Update the Script
-1. Click **Extensions → Apps Script**.
-2. Replace all the code in `Code.gs` with the snippet below:
+> **Column H (Remarks)** was added in March 2026. Existing rows without it are handled gracefully.
+
+---
+
+### Step 1 — Prepare the Sheets
+
+1. Open your Google Sheet and confirm two tabs exist: **`Leaves`** and **`Users`**.
+2. In the **`Users`** tab, seed your default access records:
+   - Row 1: `SS-023` | `1431`
+   - Row 2: `ST-001` | `1234`
+
+---
+
+### Step 2 — Replace the Script
+
+1. In your Google Sheet click **Extensions → Apps Script**.
+2. Select all (`Ctrl+A`), delete, paste the script below, then **Save** (`Ctrl+S`).
 
 ```javascript
 const LEAVES_SHEET = 'Leaves';
-const USERS_SHEET = 'Users';
+const USERS_SHEET  = 'Users';
 
 function doGet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // 1. Fetch Leaves
+
+  // --- Leaves ---
   let leaves = [];
   const leafSheet = ss.getSheetByName(LEAVES_SHEET);
   if (leafSheet) {
@@ -162,89 +167,77 @@ function doGet() {
           dateVal = `${y}-${m}-${d}`;
         }
         return {
-          id: Number(row[0]),
-          userId: String(row[2]).trim(),
+          id:       Number(row[0]),
+          userId:   String(row[2]).trim(),
           userName: String(row[3]).trim(),
-          office: String(row[4]).trim(),
-          type: String(row[5]).trim(),
-          date: String(dateVal).trim(),
-          remarks: row[7] ? String(row[7]).trim() : undefined  // Column H
+          office:   String(row[4]).trim(),
+          type:     String(row[5]).trim(),
+          date:     String(dateVal).trim(),
+          remarks:  row[7] ? String(row[7]).trim() : undefined  // Column H
         };
       });
     }
   }
 
-  // 2. Fetch Allowed Users
+  // --- Users ---
   let users = [];
   const userSheet = ss.getSheetByName(USERS_SHEET);
   if (userSheet) {
     const data = userSheet.getDataRange().getValues();
-    users = data.map(row => {
-      if (!row[0]) return null;
-      return { id: String(row[0]).trim(), pin: String(row[1]).trim() };
-    }).filter(row => row !== null);
+    users = data
+      .map(row => row[0] ? { id: String(row[0]).trim(), pin: String(row[1]).trim() } : null)
+      .filter(Boolean);
   }
 
-  return ContentService.createTextOutput(JSON.stringify({ leaves, users }))
+  return ContentService
+    .createTextOutput(JSON.stringify({ leaves, users }))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss        = SpreadsheetApp.getActiveSpreadsheet();
     const leafSheet = ss.getSheetByName(LEAVES_SHEET);
     const userSheet = ss.getSheetByName(USERS_SHEET);
-    
-    const data = JSON.parse(e.postData.contents);
+    const data      = JSON.parse(e.postData.contents);
 
-    // Handle Delete Leave
+    // Delete leave
     if (data.action === 'delete' && leafSheet) {
       const rows = leafSheet.getDataRange().getValues();
       for (let i = 1; i < rows.length; i++) {
-        if (Number(rows[i][0]) === Number(data.id)) {
-          leafSheet.deleteRow(i + 1);
-          break;
-        }
+        if (Number(rows[i][0]) === Number(data.id)) { leafSheet.deleteRow(i + 1); break; }
       }
-      return ContentService.createTextOutput(JSON.stringify({ status: 'deleted' }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return json({ status: 'deleted' });
     }
-    
-    // Handle Add User
+
+    // Add user
     if (data.action === 'add_allowed_id' && userSheet) {
       userSheet.appendRow([data.id, data.pin]);
-      return ContentService.createTextOutput(JSON.stringify({ status: 'user_added' }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return json({ status: 'user_added' });
     }
-    
-    // Handle Remove User
+
+    // Remove user
     if (data.action === 'remove_allowed_id' && userSheet) {
       const rows = userSheet.getDataRange().getValues();
       for (let i = 0; i < rows.length; i++) {
-        if (String(rows[i][0]).trim() === String(data.id).trim()) {
-          userSheet.deleteRow(i + 1);
-          break;
-        }
+        if (String(rows[i][0]).trim() === String(data.id).trim()) { userSheet.deleteRow(i + 1); break; }
       }
-      return ContentService.createTextOutput(JSON.stringify({ status: 'user_removed' }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return json({ status: 'user_removed' });
     }
-    
-    // Handle Update PIN
+
+    // Update PIN
     if (data.action === 'update_user_pin' && userSheet) {
       const rows = userSheet.getDataRange().getValues();
       for (let i = 0; i < rows.length; i++) {
         if (String(rows[i][0]).trim() === String(data.id).trim()) {
-          userSheet.getRange(i + 1, 2).setValue(data.pin);
-          break;
+          userSheet.getRange(i + 1, 2).setValue(data.pin); break;
         }
       }
-      return ContentService.createTextOutput(JSON.stringify({ status: 'pin_updated' }))
-        .setMimeType(ContentService.MimeType.JSON);
+      return json({ status: 'pin_updated' });
     }
 
-    // Default: Add Leave Record
-    // Columns: [id, timestamp, userId, userName, office, type, date, remarks]
+    // Add leave record
+    // A=id · B=timestamp · C=userId · D=userName · E=office · F=type · G=date · H=remarks
     if (leafSheet) {
       leafSheet.appendRow([
         data.id,
@@ -254,50 +247,55 @@ function doPost(e) {
         data.office,
         data.type,
         data.date,
-        data.remarks || ''   // Column H — remarks (empty string if not provided)
+        data.remarks || ''  // Column H — blank if leave type has no remarks
       ]);
-      
-      // Auto-cleanup records older than 7 days
       cleanOldLeaves(leafSheet);
     }
 
-    return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
-        .setMimeType(ContentService.MimeType.JSON);
-        
+    return json({ status: 'success' });
+
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return json({ status: 'error', message: error.toString() });
   }
+}
+
+function json(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function cleanOldLeaves(leafSheet) {
   try {
     const data = leafSheet.getDataRange().getValues();
     if (data.length <= 1) return;
-    
-    const now = new Date().getTime();
-    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-    
-    // Reverse loop to avoid index shifting safely when deleting rows
+    const now          = new Date().getTime();
+    const SEVEN_DAYS   = 7 * 24 * 60 * 60 * 1000;
     for (let i = data.length - 1; i > 0; i--) {
-      const row = data[i];
-      const insertDate = new Date(row[1]).getTime();
-      if (now - insertDate > SEVEN_DAYS_MS) {
-        leafSheet.deleteRow(i + 1);
-      }
+      if (now - new Date(data[i][1]).getTime() > SEVEN_DAYS) leafSheet.deleteRow(i + 1);
     }
-  } catch (e) {
-    console.log("Cleanup failed: ", e);
-  }
+  } catch (e) { console.log('Cleanup failed:', e); }
 }
 ```
 
-> **⚠️ Important — Remarks Column:** The updated script now writes remarks to **Column H** (`row[7]`) of the Leaves sheet. If you have existing data, the sheet will auto-expand — no manual changes needed. Just make sure to **deploy as a New Version** after updating the script.
+---
 
-### Step 3: Deploy
-1. Click **Deploy → New deployment**.
-2. Run as: **Me**, Access: **Anyone**.
-3. **Important:** Whenever you change the code, you must deploy as a **New Version** (Deploy → Manage deployments → Edit Pencil → Select "New version" → Deploy) for changes to take effect!
+### Step 3 — Deploy
+
+> ⚠️ **Updating an existing deployment?** Do NOT create a new deployment — that changes the URL. Use the steps below instead.
+
+1. Click **Deploy → Manage deployments**
+2. Click the **✏️ Edit (pencil)** icon on your active deployment
+3. Set **Version** to **"New version"**
+4. Click **Deploy**
+5. ✅ Your `.env` URL stays the same — no changes needed
+
+> **First-time deployment?**  
+> Click **Deploy → New deployment** · Type: **Web app** · Execute as: **Me** · Access: **Anyone** · Deploy → copy the URL into `VITE_GOOGLE_APPS_SCRIPT_URL` in your `.env`.
+
+---
+
+> 💡 **Haven't updated GAS yet?** No problem — the app caches remarks in `localStorage` so they still appear on the dashboard immediately after submission.
 
 ---
 
@@ -306,11 +304,11 @@ function cleanOldLeaves(leafSheet) {
 ```
 Mark-Your-Day-Off/
 ├── src/
-│   ├── App.tsx        # Unified component architecture
-│   └── index.css      # Design system & Tailwind tokens
-├── public/            # Static assets
-├── .env               # Private configuration (git-ignored)
-├── .env.example       # Template — safe to commit
+│   ├── App.tsx        # All components & logic
+│   └── index.css      # Design tokens & styles
+├── public/            # Static assets & manifest
+├── .env               # Secrets — git-ignored
+├── .env.example       # Safe template — committed
 └── README.md
 ```
 
