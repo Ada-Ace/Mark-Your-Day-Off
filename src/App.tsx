@@ -152,6 +152,31 @@ interface RawLeave {
   remarks?: string;
 }
 
+// --- REMARKS CACHE (localStorage) ---
+// Survives page reloads so remarks are visible even when GAS hasn't been
+// updated to return column H yet. Each entry: { remarks, type, date }
+const REMARKS_CACHE_KEY = 'mdo_remarks_cache';
+
+const loadRemarksCache = (): Record<string, { remarks: string; type: string; date: string }> => {
+  try {
+    const raw = localStorage.getItem(REMARKS_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, { remarks: string; type: string; date: string }>;
+    // Purge entries older than yesterday to avoid stale data accumulation
+    const keepFrom = YESTERDAY_ID;
+    const filtered = Object.entries(parsed).filter(([, v]) => v?.date >= keepFrom);
+    return Object.fromEntries(filtered) as Record<string, { remarks: string; type: string; date: string }>;
+  } catch {
+    return {};
+  }
+};
+
+const saveRemarksCache = (cache: Record<string, { remarks: string; type: string; date: string }>) => {
+  try {
+    localStorage.setItem(REMARKS_CACHE_KEY, JSON.stringify(cache));
+  } catch { /* storage full — ignore */ }
+};
+
 // --- MAIN APP ---
 export default function App() {
   const [view, setView] = useState('submit'); // 'dashboard', 'submit', or 'history'
@@ -282,6 +307,8 @@ export default function App() {
     // Normalize a single leaf record from Google Sheets.
     // Google Sheets may auto-convert our date strings into Date objects
     // which serialize as UTC ISO timestamps — causing off-by-one day bugs.
+    const remarksCache = loadRemarksCache();
+
     const normalizeLeaf = (raw: RawLeave): Leave => {
       let dateStr: string = raw.date ?? '';
       // If GAS returned a full ISO timestamp (e.g. "2026-03-09T16:00:00.000Z"),
@@ -293,6 +320,11 @@ export default function App() {
         const day = String(d.getDate()).padStart(2, '0');
         dateStr = `${y}-${m}-${day}`;
       }
+      const leaveId = String(Number(raw.id));
+      // GAS remarks take priority; fall back to localStorage cache if GAS
+      // hasn't been updated yet to return column H.
+      const gasRemarks = raw.remarks ? String(raw.remarks).trim() : undefined;
+      const cachedRemarks = remarksCache[leaveId]?.remarks;
       return {
         id: Number(raw.id),
         userId: String(raw.userId ?? '').trim(),
@@ -300,7 +332,7 @@ export default function App() {
         office: String(raw.office ?? '').trim(),
         type: String(raw.type ?? '').trim() as keyof typeof LEAVE_TYPES,
         date: dateStr.trim(),
-        remarks: raw.remarks ? String(raw.remarks).trim() : undefined,
+        remarks: gasRemarks ?? cachedRemarks,
       };
     };
 
@@ -354,6 +386,14 @@ export default function App() {
       ...(remarks?.trim() ? { remarks: remarks.trim() } : {}),
     };
 
+    // Persist remarks locally so they survive page reloads even if the GAS
+    // backend hasn't been updated to return column H yet.
+    if (remarks?.trim()) {
+      const cache = loadRemarksCache();
+      cache[String(newLeave.id)] = { remarks: remarks.trim(), type, date };
+      saveRemarksCache(cache);
+    }
+
     setIsSubmitting(true);
 
     // Optimistic UI update
@@ -391,38 +431,40 @@ export default function App() {
     }, 1500);
   };
 
-  // Auto-remove remarks on LATE_ARRIVAL entries at 13:00
+  // Auto-remove LATE_ARRIVAL remarks at 13:00 (both from React state and localStorage cache)
   const lateArrivalCleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    const scheduleCleanup = () => {
-      const now = new Date();
-      const cutoff = new Date();
-      cutoff.setHours(13, 0, 0, 0);
-      const msUntilCutoff = cutoff.getTime() - now.getTime();
-
-      if (msUntilCutoff <= 0) {
-        // Already past 13:00 — strip remarks now
-        setLeaves(prev =>
-          prev.map(l =>
-            l.type === 'LATE_ARRIVAL' && l.date === TODAY_ID && l.remarks
-              ? { ...l, remarks: undefined }
-              : l
-          )
-        );
-      } else {
-        lateArrivalCleanupRef.current = setTimeout(() => {
-          setLeaves(prev =>
-            prev.map(l =>
-              l.type === 'LATE_ARRIVAL' && l.date === TODAY_ID && l.remarks
-                ? { ...l, remarks: undefined }
-                : l
-            )
-          );
-        }, msUntilCutoff);
-      }
+    const doCleanup = () => {
+      // 1. Clear from React state
+      setLeaves(prev =>
+        prev.map(l =>
+          l.type === 'LATE_ARRIVAL' && l.date === TODAY_ID && l.remarks
+            ? { ...l, remarks: undefined }
+            : l
+        )
+      );
+      // 2. Also purge LATE_ARRIVAL today entries from localStorage cache
+      const cache = loadRemarksCache();
+      const updated = Object.fromEntries(
+        Object.entries(cache).filter(
+          ([, v]) => !(v.type === 'LATE_ARRIVAL' && v.date === TODAY_ID)
+        )
+      );
+      saveRemarksCache(updated);
     };
 
-    scheduleCleanup();
+    const now = new Date();
+    const cutoff = new Date();
+    cutoff.setHours(13, 0, 0, 0);
+    const msUntilCutoff = cutoff.getTime() - now.getTime();
+
+    if (msUntilCutoff <= 0) {
+      // Already past 13:00 — clean up immediately
+      doCleanup();
+    } else {
+      lateArrivalCleanupRef.current = setTimeout(doCleanup, msUntilCutoff);
+    }
+
     return () => {
       if (lateArrivalCleanupRef.current) clearTimeout(lateArrivalCleanupRef.current);
     };
