@@ -377,12 +377,17 @@ export default function App() {
     const formattedId = storedEmployeeId || formatUserId(userId);
     if (!formattedId || !userName.trim() || isSubmitting) return;
 
-    // Prevent submitting more than 1 leave per day per user
-    const alreadySubmitted = leaves.some(
-      l => l.userId === formattedId && l.date === date
-    );
-    if (alreadySubmitted) {
+    // Prevent multiple leaves except allowing a full leave after a Late Arrival
+    const userLeavesForDate = leaves.filter(l => l.userId === formattedId && l.date === date);
+    const hasFullLeave = userLeavesForDate.some(l => l.type !== 'LATE_ARRIVAL');
+    const hasLateArrival = userLeavesForDate.some(l => l.type === 'LATE_ARRIVAL');
+
+    if (hasFullLeave) {
       alert(`You have already submitted a leave for ${date === TODAY_ID ? 'Today' : 'Tomorrow'}. Only 1 leave per day is allowed.`);
+      return;
+    }
+    if (type === 'LATE_ARRIVAL' && hasLateArrival) {
+      alert(`You have already submitted a Late Arrival for today.`);
       return;
     }
 
@@ -1115,8 +1120,12 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
 
   // Determine which dates are already taken for the current user
   const currentUserId = storedEmployeeId || userId;
-  const todayTaken = leaves.some(l => l.userId === currentUserId && l.date === TODAY_ID);
-  const tomorrowTaken = leaves.some(l => l.userId === currentUserId && l.date === TOMORROW_ID);
+  const userLeavesToday = leaves.filter(l => l.userId === currentUserId && l.date === TODAY_ID);
+  const todayTaken = userLeavesToday.some(l => l.type !== 'LATE_ARRIVAL');
+  const todayLateTaken = userLeavesToday.some(l => l.type === 'LATE_ARRIVAL');
+
+  const userLeavesTomorrow = leaves.filter(l => l.userId === currentUserId && l.date === TOMORROW_ID);
+  const tomorrowTaken = userLeavesTomorrow.some(l => l.type !== 'LATE_ARRIVAL');
 
   // Check if it's past 13:00 in the office's timezone — Late Arrival is no longer submittable
   const isPastCutoff = getIsPastCutoff();
@@ -1307,15 +1316,15 @@ function SubmitterInterface({ userId, setUserId, userName, setUserName, onAdd, o
               </div>
               <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium pl-0.5">Today only · Record removed from dashboard at 13:00</p>
               <button
-                disabled={isSubmitting || todayTaken || isPastCutoff}
+                disabled={isSubmitting || todayTaken || todayLateTaken || isPastCutoff}
                 onClick={() => handleLeaveClick('LATE_ARRIVAL', TODAY_ID)}
                 className={`w-full py-3 rounded-xl font-bold shadow-md active:scale-95 transition-all flex flex-col items-center justify-center gap-0.5 ${
-                  todayTaken || isPastCutoff
+                  todayTaken || todayLateTaken || isPastCutoff
                     ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 shadow-none cursor-not-allowed'
                     : 'bg-violet-500 text-white shadow-violet-200 hover:bg-violet-600 disabled:opacity-50'
                 }`}
               >
-                {todayTaken ? (
+                {todayTaken || todayLateTaken ? (
                   <>
                     <CheckCircle2 size={16} />
                     <span className="text-xs font-bold">Already Submitted</span>
